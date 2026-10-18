@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/ *.py[cod] *$py.class
+
+# C environments & Virtualenv
+.venv/ env/ venv/ ENV/
+
+# Database & Storage
+*.db *.sqlite3 data/ cache/
+
+# Sensitive Environment Variables (Tuyệt đối không push cái này!)
+.env .env.*
+!.env.example
+
+# OS specific files
+.DS_Store Thumbs.db
+
+# ChromaDB / Vector Store local artifacts
+data/chroma_db/
