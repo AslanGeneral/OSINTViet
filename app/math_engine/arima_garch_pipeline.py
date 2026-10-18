@@ -79,7 +79,7 @@ class MacroQuantitativeEngine:
         # 6. Tạo timeline tương lai cho forecast
         last_date = df["ds"].iloc[-1]
         # Giả định dữ liệu theo tháng (MS: Month Start) hoặc tuần tùy dữ liệu
-        future_dates = pd.date_range(start=last_date, periods=self.forecast_steps + 1, freq="M")[1:]
+        future_dates = pd.date_range(start=last_date, periods=self.forecast_steps + 1, freq="ME")[1:]
 
         # 7. Đóng gói kết quả theo Schema Pydantic
         historical_points = [

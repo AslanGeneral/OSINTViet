@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.schemas.macro_schema import MacroBreakdownResponse
 from app.services.llm_engine import llm_router
+from app.services.embedding_engine import embedding_engine
 
 router = APIRouter(prefix="/reading-room", tags=["Phòng Đọc (Reading Room)"])
 
@@ -26,3 +27,16 @@ async def translate_macro_to_micro(req: ArticleAnalyzeRequest):
         return breakdown
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM Processing Error: {str(e)}")
+
+class SearchQuery(BaseModel):
+    query: str
+    top_k: int = 3
+
+@router.post("/semantic-search")
+async def search_macro_articles(req: SearchQuery):
+    """Semantic search"""
+    if not req.query.strip():
+        raise HTTPException(status_code=400, detail="Nhập nội dung tìm kiếm vào!")
+    
+    results = await embedding_engine.semantic_search(req.query, top_k=req.top_k)
+    return {"query": req.query, "results": results}
