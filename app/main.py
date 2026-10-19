@@ -8,6 +8,7 @@ from app.core.database import init_db
 # 1. IMPORT CÁC ROUTER Ở ĐÂY
 from app.api.v1 import reading_room
 from app.api.v1 import indicating_room
+from app.api.v1 import admin_portal
 # from app.api.v1 import matraix_room  # Bật lên khi cần dùng simulation
 
 # 2. LIFESPAN EVENT (Khởi tạo DB lúc startup)
@@ -37,6 +38,7 @@ app.add_middleware(
 # 5. BÂY GIỜ APP ĐÃ TỒN TẠI, GẮN CÁC ROUTER VÀO SAU
 app.include_router(reading_room.router, prefix=settings.API_V1_STR)
 app.include_router(indicating_room.router, prefix=settings.API_V1_STR)
+app.include_router(admin_portal.router, prefix=settings.API_V1_STR)
 # app.include_router(matraix_room.router, prefix=settings.API_V1_STR)
 
 # 6. ROUTE KIỂM TRA SỨC KHỎE
