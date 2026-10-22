@@ -1,18 +1,30 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/ *.py[cod] *$py.class
+# ==== File thực thi Python ====
+__pycache__/
+*.py[cod]
+*$py.class
 
-# C environments & Virtualenv
-.venv/ env/ venv/ ENV/
+# ==== Môi trường ảo ====
+.venv/
+env/
+venv/
+ENV/
 
-# Database & Storage
-*.db *.sqlite3 data/ cache/
+# ==== Database & Storage (Appendix A + AR §7.3: cấm commit db) ====
+*.db
+*.sqlite3
+*.sqlite
+data/
+cache/
 
-# Sensitive Environment Variables (Tuyệt đối không push cái này!)
-.env .env.*
+# Khóa API pool + biến môi trường nhạy cảm (BM: an toàn thông tin)
+keys_pool.json
+.env
+.env.*
 !.env.example
 
-# OS specific files
-.DS_Store Thumbs.db
-
-# ChromaDB / Vector Store local artifacts
+# ==== ChromaDB / Vector Store cục bộ ====
 data/chroma_db/
+
+# ==== Hệ điều hành ====
+.DS_Store
+Thumbs.db

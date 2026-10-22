@@ -13,6 +13,7 @@ class Hypothesis(BaseModel):
     )
     parent_ids: List[str] = Field(default_factory=list)
     elo_rating: float = 1200.0  # Điểm Elo khởi tạo mặc định
+    net_fuzzy_score: float = 0.0  # Điểm Fuzzy Prolog (Net_Fuzzy_Score) của phiên
     critiques: List[str] = Field(default_factory=list)
     status: str = "ALIVE"       # ALIVE | DEAD | EVOLVED
 
