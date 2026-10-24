@@ -18,6 +18,7 @@ class ModelDiagnostics(BaseModel):
     bic: float
     arch_effect_pvalue: float  # p-value từ Lagrange Multiplier test
     persistence: float         # alpha + beta từ GARCH
+    frequency: str = "unknown" # inferred series frequency (YE/ME/...)
 
 class QuantitativeForecastResponse(BaseModel):
     series_name: str

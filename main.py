@@ -10,14 +10,14 @@ import asyncio
 import json
 
 from app.core.blackboard import SharedBlackboard
-from app.core.smart_key_router import SmartKeyPoolRouter
 from app.orchestrator.universal_pipeline import UniversalCoScientistPipeline
 from app.plugins import load_plugins
+from app.services.json_router import build_orchestrator_router
 
 
 async def run_once(query: str, domain_tag: str, raw_sources, parameter_bounds):
     load_plugins()
-    router = SmartKeyPoolRouter()
+    router = build_orchestrator_router()
     blackboard = SharedBlackboard(task_id="cli_session")
     pipeline = UniversalCoScientistPipeline(router, blackboard)
     try:

@@ -20,6 +20,28 @@ class MacroQuantitativeEngine:
     def __init__(self, forecast_steps: int = 12):
         self.forecast_steps = forecast_steps
 
+    @staticmethod
+    def _infer_frequency(dates: pd.Series) -> str:
+        """Choose a pandas offset alias from the observed spacing.
+
+        Annual World Bank series must advance by years (YE), not by months.
+        Monthly series keep month-end spacing (ME); daily/weekly/quarterly
+        series are handled explicitly instead of silently assuming months.
+        """
+        deltas = dates.sort_values().diff().dropna().dt.days
+        if deltas.empty:
+            return "YE"
+        median_days = float(deltas.median())
+        if median_days <= 2:
+            return "D"
+        if median_days <= 10:
+            return "W-SUN"
+        if median_days <= 45:
+            return "ME"
+        if median_days <= 120:
+            return "QE"
+        return "YE"
+
     def fit_and_forecast(self, dates: list, values: list, series_name: str = "Indicator") -> QuantitativeForecastResponse:
         """
         Thực thi quy trình: Auto-ARIMA -> Residual Extraction -> GARCH(1,1) -> Forecast Bounds
@@ -76,10 +98,15 @@ class MacroQuantitativeEngine:
         beta = garch_fitted.params.get("beta[1]", 0.0)
         persistence = float(alpha + beta)
 
-        # 6. Tạo timeline tương lai cho forecast
+        # 6. Tạo timeline tương lai cho forecast.  Suy ra tần suất từ khoảng
+        # cách thực tế của chuỗi; dữ liệu World Bank là năm, không phải tháng.
         last_date = df["ds"].iloc[-1]
-        # Giả định dữ liệu theo tháng (MS: Month Start) hoặc tuần tùy dữ liệu
-        future_dates = pd.date_range(start=last_date, periods=self.forecast_steps + 1, freq="ME")[1:]
+        frequency = self._infer_frequency(df["ds"])
+        future_dates = pd.date_range(
+            start=last_date,
+            periods=self.forecast_steps + 1,
+            freq=frequency,
+        )[1:]
 
         # 7. Đóng gói kết quả theo Schema Pydantic
         historical_points = [
@@ -106,7 +133,8 @@ class MacroQuantitativeEngine:
             aic=round(float(arima_fitted.aic), 2),
             bic=round(float(arima_fitted.bic), 2),
             arch_effect_pvalue=round(arch_pvalue, 6),
-            persistence=round(persistence, 4)
+            persistence=round(persistence, 4),
+            frequency=frequency,
         )
 
         return QuantitativeForecastResponse(

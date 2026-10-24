@@ -1,397 +1,1075 @@
-# ============================================================
-# app/services/embedding_engine.py — bản nâng cấp Embed v5 Pro [DT §11]
-# - Cohere embed-v5.0-pro Batching (96 texts / call ~300ms)
-# - Giữ Fallback Local Ollama khi thiếu COHERE_API_KEY
-# - 4 thuật toán kiểm lỗi Search (§6.1.3):
-#     ALG1 Contrastive Pos-Neg Calibration (thuần constant như code §11 — hàng 6)
-#     ALG2 MMR (+ decay e^{-γΔt} theo DT — hàng 7)
-#     ALG3 CRAG Tri-State + Decompose-Recompose đầy đủ (hàng 8); ngưỡng từ config (hàng 4)
-#     ALG4 Numerical Divergence: CV > 0.35, unit [%, tỷ, VND, USD] (hàng 9)
-# - Proximity: ngưỡng > 0.85 [DT §13.1 Proximity Agent] (hàng 1)
-# - Cờ lỗi Search & cờ xung đột số liệu theo code §11 (hàng 10, 11)
-# ============================================================
-import os
+"""Dual-provider embedding, ingestion, storage, and semantic-search engine v2.0.
+
+Providers:
+- Cohere Embed v5 Pro (cloud, 96 texts per request).
+- EmbeddingGemma 2 through a local Ollama server.
+
+Both providers are truncated to 256 dimensions (MRL) and L2-normalized so the
+existing ChromaDB collection remains compatible. All code and JSON keys use
+English snake_case; Vietnamese is kept for data, queries, and explanations.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
 import re
-import httpx
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
 import chromadb
+import httpx
 import numpy as np
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+from numpy.typing import NDArray
+
 from app.core.config import settings
+from app.core.database import init_db, upsert_articles
+from app.models.article import Article, utc_now
+from app.schemas.workflow_schema import ArticlePayload
+
+Vector = NDArray[np.float32]
+ProximityPair = Tuple[int, int, float]
+_ALLOWED_INPUT_TYPES = frozenset({"search_document", "search_query"})
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?;])\s+|\n+")
+_NUMERICAL_UNIT_RE = re.compile(
+    r"(?<!\d)(\d+(?:[\.,]\d+)?)\s*(nghìn\s+tỷ|tỷ|%|USD|VND)",
+    re.IGNORECASE,
+)
+_UNIT_KEY_BY_SURFACE = {
+    "%": "percent",
+    "tỷ": "billion_vnd",
+    "nghìn tỷ": "trillion_vnd",
+    "usd": "usd",
+    "vnd": "vnd",
+}
+_UNIT_LABEL_VI = {
+    "percent": "%",
+    "billion_vnd": "tỷ",
+    "trillion_vnd": "nghìn tỷ",
+    "usd": "USD",
+    "vnd": "VND",
+}
 
 
 class EmbeddingFilterEngine:
-    def __init__(self, mrl_dim: int = 256):
-        self.mrl_dim = mrl_dim
+    """Dual-provider semantic ingestion and retrieval engine."""
 
-        # Cấu hình Cohere Embed v5 Pro (ưu tiên vì giải tỏa tải tài nguyên về máy cục bộ)
-        self.cohere_api_key = os.getenv("COHERE_API_KEY", "")
-        self.cohere_model = os.getenv("EMBED_MODEL", "embed-v5.0-pro")  # Hoặc "embed-v5.0-fast"
-        self.ollama_url = f"{settings.LOCAL_OLLAMA_URL}/api/embeddings"
+    def __init__(
+        self,
+        mrl_dim: int = settings.EMBEDDING_DIMENSION,
+        provider: Optional[str] = None,
+        chroma_client: Any = None,
+        http_client: Optional[httpx.AsyncClient] = None,
+        collection_name: Optional[str] = None,
+        persist_to_db: bool = True,
+        cohere_api_key: Optional[str] = None,
+    ) -> None:
+        if mrl_dim <= 0:
+            raise ValueError("mrl_dim phải lớn hơn 0.")
 
-        # Dùng chung một AsyncClient để gom Connection Pooling, tránh nghẽn socket
-        self.http_client = httpx.AsyncClient(timeout=20.0)
-        self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
-        self.collection = self.chroma_client.get_or_create_collection(
-            name="osint_macro_knowledge",
-            metadata={"hnsw:space": "cosine"}
+        self.mrl_dim = int(mrl_dim)
+        self._configured_provider = str(
+            provider or settings.EMBEDDING_PROVIDER
+        ).strip().lower()
+        if self._configured_provider not in {"auto", "cohere", "embeddinggemma"}:
+            raise ValueError(
+                "EMBEDDING_PROVIDER phải là 'auto', 'cohere' hoặc 'embeddinggemma'."
+            )
+
+        self.cohere_api_key = (
+            cohere_api_key
+            if cohere_api_key is not None
+            else settings.COHERE_API_KEY
+        ).strip()
+        self.cohere_model = (
+            settings.EMBED_MODEL.strip() or settings.COHERE_EMBED_MODEL.strip()
         )
+        self.cohere_endpoint = settings.COHERE_EMBED_ENDPOINT
+        self.cohere_batch_size = max(
+            1, min(96, int(settings.COHERE_EMBED_BATCH_SIZE))
+        )
+        self.ollama_base_url = settings.LOCAL_OLLAMA_URL.rstrip("/")
+        self.ollama_model = settings.EMBEDDING_MODEL
+        self.provider = self._resolve_provider()
 
-        # ALGORITHM 1: Bộ cặp anchor (tĩnh mặc định) — Positive (vĩ mô) &
-        # Negative (Rác/PR/Quảng cáo) cho Calibration.
-        # [Appendix A hàng 15 - quyết định user "Cả hai"]: dùng chuỗi tĩnh tiếng Việt
-        # làm mặc định (như code §11); domain khác macro có thể GHI ĐỀ bằng:
-        #   await embedding_engine.set_anchors_from_domain(pos_text, neg_text)
+        self.http_client = http_client or httpx.AsyncClient(
+            timeout=httpx.Timeout(settings.EMBEDDING_HTTP_TIMEOUT_SECONDS)
+        )
+        self._owns_http_client = http_client is None
+        self._chroma_client = chroma_client
+        self._collection_name = (
+            collection_name or settings.CHROMA_COLLECTION_NAME
+        )
+        self._collection: Any = None
+        self.persist_to_db = persist_to_db
+        self._db_ready = False
+        self._last_provider_error: Optional[str] = None
+        self._last_search_error: Optional[str] = None
+
+        self.pos_anchor_text = settings.EMBEDDING_POSITIVE_ANCHOR
+        self.neg_anchor_text = settings.EMBEDDING_NEGATIVE_ANCHOR
+        self._domain_statement: Optional[str] = None
+        self._pos_anchor_vec: Optional[Vector] = None
+        self._neg_anchor_vec: Optional[Vector] = None
+        self._anchor_lock = asyncio.Lock()
+
+        configured_domain = settings.EMBEDDING_DOMAIN_STATEMENT.strip()
+        if configured_domain:
+            self.configure_domain_anchors(configured_domain)
+
+    # ------------------------------------------------------------------
+    # Provider setup
+    # ------------------------------------------------------------------
+    def _resolve_provider(self) -> str:
+        if self._configured_provider == "auto":
+            return "cohere" if self.cohere_api_key else "embeddinggemma"
+        if self._configured_provider == "cohere" and not self.cohere_api_key:
+            raise ValueError(
+                "EMBEDDING_PROVIDER=cohere nhưng COHERE_API_KEY đang trống."
+            )
+        return self._configured_provider
+
+    @property
+    def collection(self) -> Any:
+        """Lazily open the persistent ChromaDB collection."""
+        if self._collection is None:
+            if self._chroma_client is None:
+                self._chroma_client = chromadb.PersistentClient(
+                    path=settings.CHROMA_PERSIST_DIR
+                )
+            self._collection = self._chroma_client.get_or_create_collection(
+                name=self._collection_name,
+                metadata={"hnsw:space": "cosine"},
+            )
+        return self._collection
+
+    def provider_status(self) -> Dict[str, Any]:
+        """Return a key-free provider snapshot for health checks and tests."""
+        return {
+            "configured_provider": self._configured_provider,
+            "active_provider": self.provider,
+            "cohere_model": self.cohere_model,
+            "ollama_model": self.ollama_model,
+            "mrl_dim": self.mrl_dim,
+            "last_provider_error": self._last_provider_error,
+            "last_search_error": self._last_search_error,
+        }
+
+    # ------------------------------------------------------------------
+    # Vector normalization
+    # ------------------------------------------------------------------
+    def _normalize_vector(self, vector: Sequence[float]) -> Vector:
+        """Slice to MRL dimension and L2-normalize; reject incompatible vectors."""
+        array = np.asarray(vector, dtype=np.float32)
+        if array.ndim != 1:
+            raise ValueError("Embedding phải là vector một chiều.")
+        if array.size < self.mrl_dim:
+            raise ValueError(
+                f"Embedding chỉ có {array.size} chiều; cần tối thiểu {self.mrl_dim}."
+            )
+        array = np.ascontiguousarray(array[: self.mrl_dim], dtype=np.float32)
+        norm = float(np.linalg.norm(array))
+        if norm <= 1e-12:
+            raise ValueError("Embedding có norm bằng 0, không thể chuẩn hóa L2.")
+        return array / norm
+
+    @staticmethod
+    def _validate_input_type(input_type: str) -> None:
+        if input_type not in _ALLOWED_INPUT_TYPES:
+            raise ValueError(
+                "input_type phải là 'search_document' hoặc 'search_query'."
+            )
+
+    # ------------------------------------------------------------------
+    # Provider calls
+    # ------------------------------------------------------------------
+    async def _embed_with_cohere(
+        self, texts: Sequence[str], input_type: str
+    ) -> List[Vector]:
+        vectors: List[Vector] = []
+        for start in range(0, len(texts), self.cohere_batch_size):
+            chunk = list(texts[start : start + self.cohere_batch_size])
+            response = await self.http_client.post(
+                self.cohere_endpoint,
+                headers={
+                    "Authorization": f"Bearer {self.cohere_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self.cohere_model,
+                    "texts": chunk,
+                    "input_type": input_type,
+                    "embedding_types": ["float"],
+                    "output_dimension": self.mrl_dim,
+                },
+            )
+            if response.status_code != 200:
+                body = response.text[:240]
+                raise RuntimeError(
+                    f"Cohere HTTP {response.status_code}: {body}"
+                )
+
+            payload = response.json()
+            embeddings = payload.get("embeddings")
+            if isinstance(embeddings, dict):
+                raw_vectors = embeddings.get("float")
+            else:
+                raw_vectors = embeddings
+            if not isinstance(raw_vectors, list) or len(raw_vectors) != len(chunk):
+                raise RuntimeError("Cohere trả về sai số lượng embedding.")
+
+            for raw_vector in raw_vectors:
+                vectors.append(self._normalize_vector(raw_vector))
+        return vectors
+
+    async def _embed_with_ollama(
+        self, texts: Sequence[str], input_type: str
+    ) -> List[Optional[Vector]]:
+        del input_type  # Ollama không phân biệt query/document; caller vẫn kiểm soát.
+        vectors: List[Optional[Vector]] = []
+        for start in range(0, len(texts), self.cohere_batch_size):
+            chunk = list(texts[start : start + self.cohere_batch_size])
+            batch_done = False
+            try:
+                response = await self.http_client.post(
+                    f"{self.ollama_base_url}/api/embed",
+                    json={"model": self.ollama_model, "input": chunk},
+                )
+                if response.status_code == 200:
+                    payload = response.json()
+                    raw_vectors = payload.get("embeddings")
+                    if (
+                        isinstance(raw_vectors, list)
+                        and len(raw_vectors) == len(chunk)
+                    ):
+                        for raw_vector in raw_vectors:
+                            try:
+                                vectors.append(self._normalize_vector(raw_vector))
+                            except (TypeError, ValueError) as exc:
+                                self._last_provider_error = (
+                                    f"Ollama /api/embed vector: {exc}"
+                                )
+                                vectors.append(None)
+                        batch_done = True
+                    else:
+                        self._last_provider_error = (
+                            "Ollama /api/embed trả về sai số lượng vector."
+                        )
+                else:
+                    self._last_provider_error = (
+                        f"Ollama /api/embed HTTP {response.status_code}."
+                    )
+            except Exception as exc:
+                self._last_provider_error = f"Ollama /api/embed: {exc}"
+
+            if batch_done:
+                continue
+
+            # Tương thích Ollama cũ: mỗi prompt một vector.
+            for text in chunk:
+                try:
+                    response = await self.http_client.post(
+                        f"{self.ollama_base_url}/api/embeddings",
+                        json={"model": self.ollama_model, "prompt": text},
+                    )
+                    if response.status_code == 200:
+                        payload = response.json()
+                        raw_vector = payload.get("embedding")
+                        if raw_vector is not None:
+                            vectors.append(self._normalize_vector(raw_vector))
+                            continue
+                        self._last_provider_error = (
+                            "Ollama /api/embeddings thiếu trường embedding."
+                        )
+                    else:
+                        self._last_provider_error = (
+                            "Ollama /api/embeddings HTTP "
+                            f"{response.status_code}."
+                        )
+                except Exception as exc:
+                    self._last_provider_error = f"Ollama /api/embeddings: {exc}"
+                vectors.append(None)
+        return vectors
+
+    async def get_embeddings_batch(
+        self,
+        texts: Sequence[str],
+        input_type: str = "search_document",
+    ) -> List[Optional[Vector]]:
+        """Embed texts with the active provider and return 256-d unit vectors."""
+        if not texts:
+            return []
+        self._validate_input_type(input_type)
+
+        if self.provider == "cohere":
+            try:
+                return await self._embed_with_cohere(texts, input_type)
+            except Exception as exc:
+                self._last_provider_error = str(exc)
+                if self._configured_provider == "cohere":
+                    raise RuntimeError(
+                        f"Không thể gọi Cohere Embed: {exc}"
+                    ) from exc
+                print(
+                    "[Embedding] Cohere lỗi, chuyển sang Ollama local: "
+                    f"{exc}"
+                )
+                self.provider = "embeddinggemma"
+                # Anchor vectors from Cohere live in a different space.
+                self._pos_anchor_vec = None
+                self._neg_anchor_vec = None
+
+        return await self._embed_with_ollama(texts, input_type)
+
+    # ------------------------------------------------------------------
+    # Dynamic anchors
+    # ------------------------------------------------------------------
+    def configure_domain_anchors(self, domain_statement: str) -> None:
+        """Derive positive/negative anchors from a domain statement."""
+        statement = domain_statement.strip()
+        if not statement:
+            raise ValueError("domain_statement không được rỗng.")
+        if (
+            statement == self._domain_statement
+            and self._pos_anchor_vec is not None
+            and self._neg_anchor_vec is not None
+        ):
+            return
+        self._domain_statement = statement
         self.pos_anchor_text = (
-            "Chính sách tiền tệ, lãi suất ngân hàng trung ương, lạm phát CPI, tỷ giá ngoại hối, "
-            "chuỗi cung ứng năng lượng, xăng dầu, thuế xuất nhập khẩu, GDP kinh tế vĩ mô, "
-            "nợ công, giải ngân đầu tư công."
+            f"{statement}. {settings.EMBEDDING_POSITIVE_ANCHOR}"
         )
         self.neg_anchor_text = (
-            "Quảng cáo khuyến mãi thẻ tín dụng, tin thời trang và giải trí, tin mua bán nhà đất, "
-            "bài PR xây dựng hình ảnh cá nhân và tin đồn thiếu số liệu thống kê."
+            f"{statement}. {settings.EMBEDDING_NEGATIVE_ANCHOR}"
         )
-        self._pos_anchor_vec: Optional[np.ndarray] = None
-        self._neg_anchor_vec: Optional[np.ndarray] = None
+        self._pos_anchor_vec = None
+        self._neg_anchor_vec = None
 
-    # ---------- [Appendix A hàng 15] Anchor động theo domain ----------
-    async def set_anchors_from_domain(self, positive_text: str, negative_text: str):
-        """
-        [DT §6.1.3 - hàng 15] Ghi đè anchor tĩnh macro bằng anchor sinh
-        theo mô tả bài toán (search_query). Gọi ở Stage 1 khi domain ≠ macro.
-        """
-        self.pos_anchor_text = positive_text
-        self.neg_anchor_text = negative_text
+    async def set_anchors_from_domain(
+        self,
+        positive_text: str,
+        negative_text: str,
+    ) -> None:
+        """Override anchors explicitly and warm their vectors immediately."""
+        if not positive_text.strip() or not negative_text.strip():
+            raise ValueError("Anchor positive/negative không được rỗng.")
+        self.pos_anchor_text = positive_text.strip()
+        self.neg_anchor_text = negative_text.strip()
+        self._domain_statement = None
         self._pos_anchor_vec = None
         self._neg_anchor_vec = None
         await self._ensure_anchors()
 
-    def _truncate_and_normalize(self, vec: List[float]) -> np.ndarray:
-        """Cắt chiều Matryoshka (256-dim) và chuẩn hóa L2"""
-        arr = np.array(vec[: self.mrl_dim], dtype=np.float32)
-        norm = np.linalg.norm(arr)
-        return arr / norm if norm > 1e-12 else arr
+    async def _ensure_anchors(self) -> None:
+        if self._pos_anchor_vec is not None and self._neg_anchor_vec is not None:
+            return
+        async with self._anchor_lock:
+            if self._pos_anchor_vec is not None and self._neg_anchor_vec is not None:
+                return
+            vectors = await self.get_embeddings_batch(
+                [self.pos_anchor_text, self.neg_anchor_text],
+                input_type="search_query",
+            )
+            if (
+                len(vectors) == 2
+                and vectors[0] is not None
+                and vectors[1] is not None
+            ):
+                self._pos_anchor_vec = vectors[0]
+                self._neg_anchor_vec = vectors[1]
 
-    async def get_embeddings_batch(
-        self, texts: List[str], input_type: str = "search_document"
-    ) -> List[Optional[np.ndarray]]:
-        """
-        Gọi API batch Cohere Embed v5 Pro (embed 96 bài trong 1 call ~300ms).
-        Tự động Fallback về Local Ollama nếu không có COHERE_API_KEY.
-        input_type: 'search_document' (khi nạp database) | 'search_query' (khi truy vấn)
-        [DT §6.1.1] BẮT BUỘC phân loại input_type, lẫn lộn sẽ mất khoảng 8–12% độ chính xác.
-        """
+    def _contrastive_score(self, document_vector: Vector) -> float:
+        if self._pos_anchor_vec is None or self._neg_anchor_vec is None:
+            return -1.0
+        positive_similarity = float(
+            np.dot(self._pos_anchor_vec, document_vector)
+        )
+        negative_similarity = float(
+            np.dot(self._neg_anchor_vec, document_vector)
+        )
+        return positive_similarity - settings.CONTRASTIVE_NEGATIVE_WEIGHT * max(
+            0.0,
+            negative_similarity - settings.CONTRASTIVE_NEGATIVE_MARGIN,
+        )
+
+    # ------------------------------------------------------------------
+    # Ingestion
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _article_text(article: Dict[str, Any]) -> str:
+        title_value = article.get("title")
+        title = str(title_value).strip() if title_value else ""
+        candidate_keys = (
+            "summary",
+            "cleaned_content",
+            "content",
+            "raw_content",
+            "description",
+        )
+        candidates = [
+            article.get(key).strip()
+            for key in candidate_keys
+            if isinstance(article.get(key), str) and article.get(key).strip()
+        ]
+        body = next(
+            (candidate for candidate in candidates if len(candidate) >= 20),
+            candidates[0] if candidates else "",
+        )
+        if title and body:
+            return f"{title}. {body}"
+        return title or body
+
+    @staticmethod
+    def _sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Keep ChromaDB metadata scalar and JSON/Chroma-safe."""
+        clean: Dict[str, Any] = {}
+        for key, value in metadata.items():
+            if value is None:
+                continue
+            clean[str(key)] = (
+                value
+                if isinstance(value, (str, int, float, bool))
+                else str(value)
+            )
+        return clean
+
+    @staticmethod
+    def _build_article_id(article: Dict[str, Any], text: str) -> str:
+        identity = str(article.get("link") or article.get("url") or "").strip()
+        if not identity:
+            identity = text
+        return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+    async def _persist_articles(
+        self,
+        articles: Sequence[Dict[str, Any]],
+        domain_tag: str,
+    ) -> None:
+        if not self.persist_to_db or not articles:
+            return
+        try:
+            if not self._db_ready:
+                await init_db()
+                self._db_ready = True
+            ingested_at = utc_now()
+            rows: List[Article] = []
+            for article in articles:
+                text = self._article_text(article)
+                raw_content = str(
+                    article.get("raw_content")
+                    or article.get("content")
+                    or text
+                )
+                cleaned_content = str(
+                    article.get("cleaned_content")
+                    or article.get("summary")
+                    or text
+                )
+                article_id = str(
+                    article.get("article_id")
+                    or self._build_article_id(article, text)
+                )
+                title = str(article.get("title") or "").strip() or text[:120]
+                source = str(article.get("source") or "unknown")
+                url = str(article.get("link") or article.get("url") or "")
+                row_domain_tag = str(
+                    article.get("domain_tag") or domain_tag or "general"
+                )
+                relevance_score = float(
+                    article.get("macro_relevance_score") or 0.0
+                )
+                # The SQLite write input is a Pydantic-validated JSON object,
+                # not an ad-hoc dict.  The same object is retained in the row
+                # for later recheck and provenance.
+                payload = ArticlePayload(
+                    article_id=article_id,
+                    title=title,
+                    source=source,
+                    url=url,
+                    raw_content=raw_content,
+                    cleaned_content=cleaned_content,
+                    relevance_score=relevance_score,
+                    domain_tag=row_domain_tag,
+                    fetched_at=str(article.get("fetched_at") or ""),
+                    published_at=(
+                        str(article.get("published_at"))
+                        if article.get("published_at")
+                        else None
+                    ),
+                    browser=str(article.get("browser") or ""),
+                    selection_seed=article.get("selection_seed"),
+                )
+                rows.append(
+                    Article(
+                        id=article_id,
+                        title=title,
+                        source=source,
+                        url=url,
+                        raw_content=raw_content,
+                        cleaned_content=cleaned_content,
+                        relevance_score=relevance_score,
+                        ingested_at=ingested_at,
+                        domain_tag=row_domain_tag,
+                        payload_json=payload.model_dump_json(),
+                    )
+                )
+            await upsert_articles(rows)
+        except Exception as exc:
+            # Vector search must keep working even when SQLite is unavailable.
+            print(f"[EmbeddingStorage] Không lưu được Article: {exc}")
+
+    async def filter_and_ingest_news(
+        self,
+        raw_articles: List[Dict[str, Any]],
+        similarity_threshold: float = settings.INGESTION_CONTRASTIVE_THRESHOLD,
+        domain_statement: Optional[str] = None,
+        domain_tag: str = "general",
+    ) -> List[Dict[str, Any]]:
+        """Filter noisy articles and persist accepted items to ChromaDB + SQLite."""
+        if not raw_articles:
+            return []
+        if domain_statement:
+            self.configure_domain_anchors(domain_statement)
+        await self._ensure_anchors()
+        if self._pos_anchor_vec is None or self._neg_anchor_vec is None:
+            print(
+                "[Embedding] Không tạo được anchor; kiểm tra provider "
+                f"({self.provider}) và cấu hình Ollama/Cohere."
+            )
+            return []
+
+        threshold = float(similarity_threshold)
+        eligible_articles: List[Dict[str, Any]] = []
+        texts: List[str] = []
+        for article in raw_articles:
+            text = self._article_text(article)
+            if len(text.strip()) < 20:
+                continue
+            eligible_articles.append(article)
+            texts.append(text)
         if not texts:
             return []
 
-        # Priority 1: Dùng Cohere Embed v5 Pro (hoàn toàn dỡ tải embedding khỏi máy cục bộ)
-        # Batch cố định 96 text / call theo code §11 để không vượt giới hạn API.
-        if self.cohere_api_key:
-            try:
-                batched_vectors: List[np.ndarray] = []
-                for start in range(0, len(texts), 96):
-                    chunk = texts[start:start + 96]
-                    res = await self.http_client.post(
-                        "https://api.cohere.com/v2/embed",
-                        headers={
-                            "Authorization": f"Bearer {self.cohere_api_key}",
-                            "Content-Type": "application/json",
-                        },
-                        json={
-                            "model": self.cohere_model,
-                            "texts": chunk,
-                            "input_type": input_type,
-                            "embedding_types": ["float"],
-                            "output_dimension": self.mrl_dim,  # Hỗ trợ native 256-dim trên Embed v5 Pro!
-                        },
-                    )
-                    if res.status_code != 200:
-                        raise RuntimeError(f"Cohere HTTP {res.status_code}")
-                    raw_list = res.json()["embeddings"]["float"]
-                    batched_vectors.extend(self._truncate_and_normalize(v) for v in raw_list)
-                return batched_vectors
-            except Exception as e:
-                print(f"[Embed v5 Pro Warning] Lỗi gọi Cloud API, chuyển sang Fallback: {e}")
-
-        # Priority 2 (Fallback): chạy Local Ollama nếu không có network/API Key
-        results = []
-        for t in texts:
-            try:
-                res = await self.http_client.post(
-                    self.ollama_url, json={"model": settings.EMBEDDING_MODEL, "prompt": t}
-                )
-                if res.status_code == 200 and "embedding" in res.json():
-                    results.append(self._truncate_and_normalize(res.json()["embedding"]))
-                else:
-                    results.append(None)
-            except Exception:
-                results.append(None)
-        return results
-
-    async def _ensure_anchors(self):
-        if self._pos_anchor_vec is None or self._neg_anchor_vec is None:
-            vecs = await self.get_embeddings_batch(
-                [self.pos_anchor_text, self.neg_anchor_text], input_type="search_query"
-            )
-            if len(vecs) == 2 and vecs[0] is not None and vecs[1] is not None:
-                self._pos_anchor_vec, self._neg_anchor_vec = vecs[0], vecs[1]
-
-    async def filter_and_ingest_news(
-        self, raw_articles: List[Dict[str, Any]], similarity_threshold: float = 0.45
-    ) -> List[Dict[str, Any]]:
-        """
-        Nạp tin tức siêu nhanh dùng Batch Embedding + lọc nhiễu
-        Positive/Negative Contrastive Calibration.
-        [Appendix A hàng 5 - quyết định user]: ngưỡng >= 0.45 (theo code cũ).
-        """
+        document_vectors = await self.get_embeddings_batch(
+            texts, input_type="search_document"
+        )
+        # A Cohere -> Ollama fallback can happen while embedding documents;
+        # rebuild anchors in the new provider space before scoring.
         await self._ensure_anchors()
-        if not raw_articles or self._pos_anchor_vec is None or self._neg_anchor_vec is None:
+        if self._pos_anchor_vec is None or self._neg_anchor_vec is None:
+            print(
+                "[Embedding] Không tạo được anchor sau khi embedding tài liệu; "
+                "bỏ qua lô tin này."
+            )
             return []
 
-        texts_to_embed = [f"{a.get('title', '')}. {a.get('summary', '')}" for a in raw_articles]
+        accepted: List[Dict[str, Any]] = []
+        ids: List[str] = []
+        embeddings: List[List[float]] = []
+        metadatas: List[Dict[str, Any]] = []
+        documents: List[str] = []
+        seen_ids: set[str] = set()
+        now_ts = datetime.now(timezone.utc).timestamp()
 
-        # Bắn Batch một lần cho toàn bộ danh sách bài!
-        doc_vecs = await self.get_embeddings_batch(texts_to_embed, input_type="search_document")
-
-        accepted, ids, embeddings, metadatas, documents = [], [], [], [], []
-        now_ts = datetime.utcnow().timestamp()
-
-        for item, doc_vec, full_text in zip(raw_articles, doc_vecs, texts_to_embed):
-            if doc_vec is None or len(full_text.strip()) < 20:
+        for article, document_vector, text in zip(
+            eligible_articles, document_vectors, texts
+        ):
+            if document_vector is None:
+                continue
+            score = self._contrastive_score(document_vector)
+            if score < threshold:
                 continue
 
-            # ALGORITHM 1: Tính Contrast Margin (gần anchor Positive & xa anchor Negative)
-            pos_sim = float(np.dot(self._pos_anchor_vec, doc_vec))
-            neg_sim = float(np.dot(self._neg_anchor_vec, doc_vec))
-            # Hằng số giữ nguyên như code §11 [Appendix A hàng 6]
-            calibrated_score = pos_sim - 0.5 * max(0.0, neg_sim - 0.30)
+            article_id = self._build_article_id(article, text)
+            if article_id in seen_ids:
+                continue
+            seen_ids.add(article_id)
 
-            if calibrated_score >= similarity_threshold:
-                doc_id = f"news_{abs(hash(item.get('link', full_text)))}"
-                item["macro_relevance_score"] = round(calibrated_score, 4)
-                accepted.append(item)
-                ids.append(doc_id)
-                embeddings.append(doc_vec.tolist())
-                metadatas.append({
-                    "source": item.get("source", "unknown"),
-                    "link": item.get("link", ""),
-                    "score": round(calibrated_score, 4),
-                    "ingested_at_ts": now_ts,
-                })
-                documents.append(full_text)
+            accepted_item = dict(article)
+            accepted_item["article_id"] = article_id
+            accepted_item["macro_relevance_score"] = round(float(score), 4)
+            accepted_item["domain_tag"] = str(
+                article.get("domain_tag") or domain_tag or "general"
+            )
+            accepted.append(accepted_item)
 
-        if ids:
-            self.collection.upsert(ids=ids, embeddings=embeddings, metadatas=metadatas, documents=documents)
-        return accepted
+            ids.append(article_id)
+            embeddings.append(document_vector.tolist())
+            metadatas.append(
+                self._sanitize_metadata(
+                    {
+                        "article_id": article_id,
+                        "title": str(article.get("title") or "")[:500],
+                        "source": str(
+                            article.get("source") or "unknown"
+                        )[:200],
+                        "link": str(
+                            article.get("link") or article.get("url") or ""
+                        )[:1000],
+                        "domain_tag": accepted_item["domain_tag"][:120],
+                        "score": round(float(score), 4),
+                        "ingested_at_ts": now_ts,
+                    }
+                )
+            )
+            documents.append(text)
 
-    async def is_macro_relevant(self, text: str, threshold: float = 0.55) -> bool:
-        """
-        Tương thích scraper cũ (macro_news_scraper): chấm điểm hiệu chuẩn
-        Positive/Negative anchors trước khi index.
-        """
+        if not ids:
+            return []
+
+        indexed = True
+        try:
+            self.collection.upsert(
+                ids=ids,
+                embeddings=embeddings,
+                metadatas=metadatas,
+                documents=documents,
+            )
+        except Exception as exc:
+            indexed = False
+            self._last_search_error = f"Chroma upsert: {exc}"
+            print(f"[Embedding] Không ghi được ChromaDB: {exc}")
+        await self._persist_articles(accepted, domain_tag=domain_tag)
+        return accepted if indexed else []
+
+    async def is_macro_relevant(
+        self,
+        text: str,
+        threshold: float = settings.INGESTION_CONTRASTIVE_THRESHOLD,
+    ) -> bool:
+        """Score one document with the same contrastive calibration as ingestion."""
+        if not text.strip():
+            return False
         await self._ensure_anchors()
         if self._pos_anchor_vec is None or self._neg_anchor_vec is None:
             return False
-        vecs = await self.get_embeddings_batch([text], input_type="search_document")
-        if not vecs or vecs[0] is None:
-            return False
-        doc_vec = vecs[0]
-        pos_sim = float(np.dot(self._pos_anchor_vec, doc_vec))
-        neg_sim = float(np.dot(self._neg_anchor_vec, doc_vec))
-        calibrated = pos_sim - 0.5 * max(0.0, neg_sim - 0.30)
-        return calibrated >= threshold
-
-    async def index_article(self, article_id: str, text: str,
-                            metadata: Optional[Dict[str, Any]] = None) -> bool:
-        """Tương thích scraper cũ: nạp trực tiếp một bài viết vào ChromaDB."""
-        vecs = await self.get_embeddings_batch([text], input_type="search_document")
-        if not vecs or vecs[0] is None:
-            return False
-        meta = dict(metadata or {})
-        meta.setdefault("ingested_at_ts", datetime.utcnow().timestamp())
-        self.collection.upsert(
-            ids=[article_id],
-            embeddings=[vecs[0].tolist()],
-            metadatas=[meta],
-            documents=[text],
+        vectors = await self.get_embeddings_batch(
+            [text], input_type="search_document"
         )
-        return True
+        if not vectors or vectors[0] is None:
+            return False
+        await self._ensure_anchors()
+        if self._pos_anchor_vec is None or self._neg_anchor_vec is None:
+            return False
+        return self._contrastive_score(vectors[0]) >= float(threshold)
 
-    def _detect_numerical_conflict(self, docs: List[str]) -> Dict[str, Any]:
-        """
-        ALGORITHM 4: Kiểm tra xung đột số liệu giữa các tài liệu được tìm thấy.
-        [Appendix A hàng 9 - quyết định user]: trích cả 4 nhóm unit [%, tỷ, VND, USD];
-        CV > settings.NUMERICAL_CV_THRESHOLD (mặc định 0.35) → đánh dấu
-        has_numerical_divergence (tên cờ theo code §11 — hàng 11).
-        """
-        unit_values: Dict[str, List[float]] = {"%": [], "tỷ": [], "VND": [], "USD": []}
-        unit_patterns = {
-            "%": r"(\d+(?:[\.,]\d+)?)\s*%",
-            "tỷ": r"(\d+(?:[\.,]\d+)?)\s*tỷ",
-            "VND": r"(\d+(?:[\.,]\d+)?)\s*VND",
-            "USD": r"(\d+(?:[\.,]\d+)?)\s*USD",
-        }
-        for d in docs:
-            for unit, pattern in unit_patterns.items():
-                for m in re.findall(pattern, d):
-                    try:
-                        unit_values[unit].append(float(m.replace(",", ".")))
-                    except (TypeError, ValueError):
-                        continue
+    async def index_article(
+        self,
+        article_id: str,
+        text: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Index one article directly, preserving the legacy scraper API."""
+        article_id = str(article_id).strip()
+        if not article_id or not text.strip():
+            return False
+        vectors = await self.get_embeddings_batch(
+            [text], input_type="search_document"
+        )
+        if not vectors or vectors[0] is None:
+            return False
 
-        conflicts: Dict[str, Any] = {"has_numerical_divergence": False}
-        for unit, values in unit_values.items():
-            if len(values) >= 2:
-                mean_val = np.mean(values)
-                std_val = np.std(values)
-                cv = (std_val / mean_val) if mean_val > 1e-6 else 0.0
-                if cv > settings.NUMERICAL_CV_THRESHOLD:
-                    conflicts = {
-                        "has_numerical_divergence": True,
-                        f"extracted_{unit}_rates": values,
-                        f"cv_{unit}": round(float(cv), 3),
-                    }
-        return conflicts
-
-    def _decay_for_doc(self, meta: Dict[str, Any], now_ts: float) -> float:
-        """Hệ số giảm thời gian e^{-γΔt} applied to content in MMR [Appendix A hàng 7]"""
+        now_ts = datetime.now(timezone.utc).timestamp()
+        meta = self._sanitize_metadata(dict(metadata or {}))
+        meta.setdefault("article_id", article_id)
+        meta.setdefault("ingested_at_ts", now_ts)
+        meta.setdefault("score", 0.0)
+        meta = self._sanitize_metadata(meta)
+        indexed = True
         try:
-            dt_days = max(0.0, (now_ts - float(meta.get("ingested_at_ts", now_ts))) / 86400.0)
-        except (TypeError, ValueError):
-            dt_days = 0.0
-        return float(np.exp(-settings.MMR_TIME_DECAY_GAMMA * dt_days))
+            self.collection.upsert(
+                ids=[article_id],
+                embeddings=[vectors[0].tolist()],
+                metadatas=[meta],
+                documents=[text],
+            )
+        except Exception as exc:
+            indexed = False
+            self._last_search_error = f"Chroma upsert: {exc}"
+            print(f"[Embedding] Không ghi được ChromaDB: {exc}")
 
-    async def semantic_search(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
-        """
-        Search kèm kiểm lỗi (CRAG Tri-State + MMR chống trùng + Decompose-Recompose)
-        - [Appendix A hàng 4]: ngưỡng CRAG đọc từ settings (operator tượng trưng per DT §6.1.3)
-        - [Appendix A hàng 7]: MMR có thêm decay e^{-γΔt} theo DT (β = settings.MMR_BETA)
-        - [Appendix A hàng 8]: AMBIGUOUS → Decompose-Recompose đầy đủ theo DT desc
-        """
-        q_vecs = await self.get_embeddings_batch([query], input_type="search_query")
-        if not q_vecs or q_vecs[0] is None:
-            return []
-        q_vec = q_vecs[0]
+        if self.persist_to_db:
+            await self._persist_articles(
+                [
+                    {
+                        "article_id": article_id,
+                        "title": str(meta.get("title") or "") or text[:120],
+                        "source": str(meta.get("source") or "unknown"),
+                        "link": str(meta.get("link") or meta.get("url") or ""),
+                        "raw_content": text,
+                        "cleaned_content": text,
+                        "macro_relevance_score": float(
+                            meta.get("score") or 0.0
+                        ),
+                        "domain_tag": str(
+                            meta.get("domain_tag") or "general"
+                        ),
+                    }
+                ],
+                domain_tag=str(meta.get("domain_tag") or "general"),
+            )
+        return indexed
 
-        # Lấy tập mở rộng ứng cử viên (top_k * 3) cùng vector để chạy MMR
-        res = self.collection.query(
-            query_embeddings=[q_vec.tolist()],
-            n_results=max(top_k * 3, 6),
-            include=["documents", "metadatas", "distances", "embeddings"],
-        )
-        if not res["documents"] or not res["documents"][0]:
-            # Trả cờ lỗi Search [Code §11 - hàng 10]
-            return [{"search_status": "INCORRECT_EMPTY_DB",
-                     "document": "", "action": "TRIGGER_LIVE_SCRAPER"}]
-
-        cand_docs = res["documents"][0]
-        cand_metas = res["metadatas"][0]
-        cand_vecs = [np.array(v, dtype=np.float32) for v in res["embeddings"][0]]
-
-        # ALGORITHM 2: Chọn đa dạng top_k dùng MMR (Maximum Marginal Relevance)
-        # để tránh hiện tượng trùng lặp nguồn (Echo Chamber).
-        # MMR(d) = beta * e^{-gamma*dt} * cos(q, doc) - (1 - beta) * max cos(doc, selected)
-        selected_indices = []
-        beta = settings.MMR_BETA
-        now_ts = datetime.utcnow().timestamp()
-        for _ in range(min(top_k, len(cand_docs))):
-            best_idx, best_mmr = -1, -1e9
-            for idx in range(len(cand_docs)):
-                if idx in selected_indices:
+    # ------------------------------------------------------------------
+    # Algorithm 4: numerical divergence
+    # ------------------------------------------------------------------
+    def _detect_numerical_conflict(
+        self, docs: Sequence[str]
+    ) -> Dict[str, Any]:
+        """Detect cross-document numerical spread with coefficient of variation."""
+        unit_values: Dict[str, List[float]] = {}
+        for document in docs:
+            for match in _NUMERICAL_UNIT_RE.finditer(document):
+                raw_value = match.group(1).replace(",", ".")
+                raw_unit = re.sub(r"\s+", " ", match.group(2)).strip().lower()
+                unit = _UNIT_KEY_BY_SURFACE.get(raw_unit)
+                if unit is None:
                     continue
-                sim_q = float(np.dot(q_vec, cand_vecs[idx]))
-                decay = self._decay_for_doc(cand_metas[idx], now_ts)
-                max_sim_selected = max(
-                    [float(np.dot(cand_vecs[idx], cand_vecs[j])) for j in selected_indices],
+                try:
+                    value = float(raw_value)
+                except ValueError:
+                    continue
+                unit_values.setdefault(unit, []).append(value)
+
+        spread: Dict[str, Dict[str, Any]] = {}
+        for unit, values in unit_values.items():
+            if len(values) < 2:
+                continue
+            mean_value = float(np.mean(values))
+            std_value = float(np.std(values))
+            coefficient = (
+                std_value / mean_value if mean_value > 1e-9 else 0.0
+            )
+            if coefficient > settings.NUMERICAL_CV_THRESHOLD:
+                spread[unit] = {
+                    "unit_vi": _UNIT_LABEL_VI[unit],
+                    "values": values,
+                    "cv": round(coefficient, 3),
+                    "mean": round(mean_value, 4),
+                    "min": min(values),
+                    "max": max(values),
+                    "range": round(max(values) - min(values), 4),
+                }
+
+        has_conflict = bool(spread)
+        result: Dict[str, Any] = {
+            "has_numerical_divergence": has_conflict,
+            "flag": "DATA_CONFLICT_WARNING" if has_conflict else None,
+            "spread": spread,
+        }
+        # Compatibility with the previous engine's flat fields.
+        for unit, details in spread.items():
+            result[f"extracted_{unit}_rates"] = details["values"]
+            result[f"cv_{unit}"] = details["cv"]
+        return result
+
+    # ------------------------------------------------------------------
+    # Algorithm 2 helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _decay_for_doc(meta: Dict[str, Any], now_ts: float) -> float:
+        try:
+            ingested_at = float(meta.get("ingested_at_ts", now_ts))
+            delta_days = max(0.0, (now_ts - ingested_at) / 86400.0)
+        except (TypeError, ValueError):
+            delta_days = 0.0
+        return float(np.exp(-settings.MMR_TIME_DECAY_GAMMA * delta_days))
+
+    @staticmethod
+    def _search_error(
+        status: str,
+        max_similarity: Optional[float] = None,
+        message_vi: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        result: Dict[str, Any] = {
+            "search_status": status,
+            "action": "REQUIRE_EXTERNAL_WEB_SEARCH",
+            # Empty document prevents the orchestrator from treating this
+            # operational warning as retrieved evidence.
+            "document": "",
+            "message_vi": message_vi
+            or (
+                "CẢNH BÁO: kho dữ liệu hiện tại không đủ bằng chứng đáng tin cậy "
+                "cho truy vấn này; cần bổ sung nguồn bên ngoài."
+            ),
+        }
+        if max_similarity is not None:
+            result["max_similarity"] = round(float(max_similarity), 4)
+        return result
+
+    # ------------------------------------------------------------------
+    # Algorithm 2 + 3: temporal MMR and CRAG tri-state
+    # ------------------------------------------------------------------
+    async def semantic_search(
+        self, query: str, top_k: int = 3
+    ) -> List[Dict[str, Any]]:
+        """Search with temporal MMR, CRAG tri-state, and numerical conflict checks."""
+        if not query.strip():
+            return [
+                self._search_error(
+                    "INCORRECT_EMPTY_QUERY",
+                    message_vi="Truy vấn rỗng, không thể tìm kiếm ngữ nghĩa.",
+                )
+            ]
+        top_k = max(1, int(top_k))
+        query_vectors = await self.get_embeddings_batch(
+            [query], input_type="search_query"
+        )
+        if not query_vectors or query_vectors[0] is None:
+            return [
+                self._search_error(
+                    "INCORRECT_EMBEDDING_UNAVAILABLE",
+                    message_vi=(
+                        "Không tạo được embedding cho truy vấn; "
+                        "cần kiểm tra nhà cung cấp embedding."
+                    ),
+                )
+            ]
+        query_vector = query_vectors[0]
+
+        try:
+            collection = self.collection
+            available = int(collection.count())
+            if available == 0:
+                return [self._search_error("INCORRECT_EMPTY_DB")]
+            result = collection.query(
+                query_embeddings=[query_vector.tolist()],
+                n_results=min(max(top_k * 3, 6), available),
+                include=["documents", "metadatas", "embeddings"],
+            )
+        except Exception as exc:
+            self._last_search_error = f"Chroma search: {exc}"
+            print(f"[Embedding] Lỗi truy vấn ChromaDB: {exc}")
+            return [
+                self._search_error(
+                    "INCORRECT_VECTOR_STORE_ERROR",
+                    message_vi=(
+                        "Không truy cập được kho vector; "
+                        "cần kiểm tra ChromaDB và cấu hình collection."
+                    ),
+                )
+            ]
+        raw_documents = result.get("documents") or [[]]
+        raw_metadatas = result.get("metadatas") or [[]]
+        raw_embeddings = result.get("embeddings")
+        if (
+            not raw_documents
+            or not raw_documents[0]
+            or raw_embeddings is None
+        ):
+            return [self._search_error("INCORRECT_EMPTY_DB")]
+
+        metadata_rows: List[Any] = (
+            raw_metadatas[0]
+            if raw_metadatas and raw_metadatas[0]
+            else [None] * len(raw_documents[0])
+        )
+        embedding_rows: List[Any] = (
+            raw_embeddings[0] if raw_embeddings else []
+        )
+        candidates: List[Tuple[str, Dict[str, Any], Vector]] = []
+        seen_documents: set[str] = set()
+        for document, metadata, embedding in zip(
+            raw_documents[0],
+            metadata_rows,
+            embedding_rows,
+        ):
+            if document is None or embedding is None:
+                continue
+            try:
+                vector = self._normalize_vector(embedding)
+            except (TypeError, ValueError):
+                # Ignore legacy or malformed vectors instead of failing a query.
+                continue
+            document_text = str(document)
+            document_key = re.sub(
+                r"\s+", " ", document_text
+            ).strip().lower()
+            if document_key in seen_documents:
+                continue
+            seen_documents.add(document_key)
+            candidates.append(
+                (document_text, dict(metadata or {}), vector)
+            )
+        if not candidates:
+            return [self._search_error("INCORRECT_EMPTY_DB")]
+
+        query_similarities = [
+            float(np.dot(query_vector, candidate[2]))
+            for candidate in candidates
+        ]
+        max_similarity = max(query_similarities)
+
+        if max_similarity < settings.CRAG_AMBIGUOUS_THRESHOLD:
+            return [
+                self._search_error(
+                    "INCORRECT_LOW_CONFIDENCE",
+                    max_similarity=max_similarity,
+                )
+            ]
+
+        if max_similarity >= settings.CRAG_CORRECT_THRESHOLD:
+            crag_state = "CORRECT"
+        else:
+            crag_state = "AMBIGUOUS"
+
+        # Temporal MMR.
+        selected_indices: List[int] = []
+        mmr_scores: Dict[int, float] = {}
+        now_ts = datetime.now(timezone.utc).timestamp()
+        for _ in range(min(top_k, len(candidates))):
+            best_index = -1
+            best_score = float("-inf")
+            for index, (_, metadata, vector) in enumerate(candidates):
+                if index in selected_indices:
+                    continue
+                decay = self._decay_for_doc(metadata, now_ts)
+                similarity_to_selected = max(
+                    (
+                        float(np.dot(vector, candidates[selected][2]))
+                        for selected in selected_indices
+                    ),
                     default=0.0,
                 )
-                mmr_score = beta * decay * sim_q - (1.0 - beta) * max_sim_selected
-                if mmr_score > best_mmr:
-                    best_mmr, best_idx = mmr_score, idx
-            if best_idx != -1:
-                selected_indices.append(best_idx)
+                mmr_score = (
+                    settings.MMR_BETA
+                    * decay
+                    * query_similarities[index]
+                    - (1.0 - settings.MMR_BETA)
+                    * similarity_to_selected
+                )
+                if mmr_score > best_score:
+                    best_score = mmr_score
+                    best_index = index
+            if best_index < 0:
+                break
+            selected_indices.append(best_index)
+            mmr_scores[best_index] = best_score
 
-        # ALGORITHM 3: Xét 3 trạng thái CRAG (CORRECT / AMBIGUOUS / INCORRECT)
-        max_sim = max([float(np.dot(q_vec, cand_vecs[i])) for i in selected_indices], default=0.0)
-        if max_sim >= settings.CRAG_CORRECT_THRESHOLD:
-            crag_state = "CORRECT"
-        elif max_sim >= settings.CRAG_AMBIGUOUS_THRESHOLD:
-            crag_state = "AMBIGUOUS"
-        else:
-            # Toàn bộ kết quả dưới ngưỡng AMBIGUOUS -> báo lỗi Search để Agent không tự phóng tác!
-            return [{
-                "search_status": "INCORRECT_LOW_CONFIDENCE",
-                "max_similarity": round(max_sim, 4),
-                "document": "SEARCH ERROR WARNING: The current data repository does not have sufficient evidence for this query.",
-                "action": "REQUIRE_EXTERNAL_WEB_SEARCH",
-            }]
+        selected_texts = [candidates[index][0] for index in selected_indices]
+        numerical_warning = self._detect_numerical_conflict(selected_texts)
 
-        # Kiểm tra xung đột số liệu giữa các bài báo được chọn
-        selected_texts = [cand_docs[i] for i in selected_indices]
-        num_check = self._detect_numerical_conflict(selected_texts)
-
-        # ALG3 mở rộng [DT desc - hàng 8]: AMBIGUOUS → chạy Decompose-Recompose:
-        # tách tài liệu thành câu, embed batch, chỉ giữ câu đạt ngưỡng dot(q, sentence).
-        recomposed = [(cand_docs[i], i) for i in selected_indices]
+        # CRAG AMBIGUOUS: decompose to sentences, embed as documents, recompose.
+        recomposed: List[Tuple[str, int, float]] = []
         if crag_state == "AMBIGUOUS":
-            keep_threshold = settings.DECOMPOSE_KEEP_THRESHOLD
-            kept_pairs = []
-            for idx in selected_indices:
-                doc_text = cand_docs[idx]
-                sentences = [s.strip() for s in re.split(r'(?<=[.!?;])\s+', doc_text) if s.strip()]
-                if not sentences:
-                    continue
-                sent_vecs = await self.get_embeddings_batch(sentences, input_type="search_document")
-                kept_sentences = [
-                    s for s, sv in zip(sentences, sent_vecs)
-                    if sv is not None and float(np.dot(q_vec, sv)) >= keep_threshold
+            sentence_records: List[Tuple[int, str]] = []
+            for index in selected_indices:
+                sentences = [
+                    sentence.strip()
+                    for sentence in _SENTENCE_SPLIT_RE.split(
+                        candidates[index][0]
+                    )
+                    if sentence.strip()
                 ]
-                if kept_sentences:
-                    kept_pairs.append((" ".join(kept_sentences), idx))
-            if kept_pairs:
-                # Tái kết hợp (Recompose): giữ lại duy nhất câu đạt điều kiện
-                recomposed = kept_pairs
-            else:
-                # Cắt hết câu không đạt → coi như không đủ tuyến bằng chứng
-                return [{
-                    "search_status": "INCORRECT_LOW_CONFIDENCE",
-                    "max_similarity": round(max_sim, 4),
-                    "document": "SEARCH ERROR WARNING: The current data repository does not have sufficient evidence for this query.",
-                    "action": "REQUIRE_EXTERNAL_WEB_SEARCH",
-                }]
+                for sentence in sentences:
+                    sentence_records.append((index, sentence))
 
-        final_hits = []
-        for doc_text, idx in recomposed:
-            sim_val = round(float(np.dot(q_vec, cand_vecs[idx])), 4)
-            final_hits.append({
-                "document": doc_text,
-                "metadata": cand_metas[idx],
-                "similarity": sim_val,
-                "search_verification": {
-                    "crag_state": crag_state,
-                    "numerical_divergence_warning": num_check,
-                },
-            })
-        return final_hits
+            if sentence_records:
+                sentence_vectors = await self.get_embeddings_batch(
+                    [record[1] for record in sentence_records],
+                    input_type="search_document",
+                )
+                kept_by_index: Dict[int, List[str]] = {}
+                for (index, sentence), sentence_vector in zip(
+                    sentence_records, sentence_vectors
+                ):
+                    if sentence_vector is None:
+                        continue
+                    if (
+                        float(np.dot(query_vector, sentence_vector))
+                        >= settings.DECOMPOSE_KEEP_THRESHOLD
+                    ):
+                        kept_by_index.setdefault(index, []).append(sentence)
+                recomposed = [
+                    (
+                        " ".join(kept_by_index[index]),
+                        index,
+                        query_similarities[index],
+                    )
+                    for index in selected_indices
+                    if index in kept_by_index
+                ]
 
-    async def check_hypothesis_proximity(self, hypotheses_texts: List[str], threshold: float = 0.85) -> List[tuple]:
-        """
-        ['Proximity Agent' mechanism from the Google DeepMind AI Co-Scientist paper]:
-        Tìm các cặp hypothesis có ý tưởng trùng lặp trước khi đưa vào vòng Elo.
-        [Appendix A hàng 1 - quyết định user]: gộp khi similarity > 0.85 [DT §13.1]
-        """
-        vecs = await self.get_embeddings_batch(hypotheses_texts, input_type="search_document")
-        redundant_pairs = []
-        for i in range(len(vecs)):
-            for j in range(i + 1, len(vecs)):
-                if vecs[i] is not None and vecs[j] is not None:
-                    sim = float(np.dot(vecs[i], vecs[j]))
-                    if sim > threshold:
-                        redundant_pairs.append((i, j, round(sim, 4)))
-        return redundant_pairs
+            if not recomposed:
+                return [
+                    self._search_error(
+                        "INCORRECT_LOW_CONFIDENCE",
+                        max_similarity=max_similarity,
+                    )
+                ]
+        else:
+            recomposed = [
+                (
+                    candidates[index][0],
+                    index,
+                    query_similarities[index],
+                )
+                for index in selected_indices
+            ]
 
-    async def close(self):
-        await self.http_client.aclose()
+        hits: List[Dict[str, Any]] = []
+        for document, index, original_similarity in recomposed:
+            hits.append(
+                {
+                    "document": document,
+                    "metadata": candidates[index][1],
+                    "similarity": round(float(original_similarity), 4),
+                    "mmr_score": round(
+                        float(mmr_scores.get(index, 0.0)), 4
+                    ),
+                    "search_status": crag_state,
+                    "search_verification": {
+                        "crag_state": crag_state,
+                        "max_similarity": round(float(max_similarity), 4),
+                        "numerical_divergence_warning": numerical_warning,
+                        "data_conflict_warning": numerical_warning["flag"],
+                        "decomposed": crag_state == "AMBIGUOUS",
+                    },
+                }
+            )
+        return hits
+
+    # ------------------------------------------------------------------
+    # Proximity Agent
+    # ------------------------------------------------------------------
+    async def check_hypothesis_proximity(
+        self,
+        hypotheses_texts: List[str],
+        threshold: float = settings.PROXIMITY_SIMILARITY_THRESHOLD,
+    ) -> List[ProximityPair]:
+        """Return all hypothesis pairs at or above the mode-collapse threshold."""
+        if len(hypotheses_texts) < 2:
+            return []
+        vectors = await self.get_embeddings_batch(
+            hypotheses_texts, input_type="search_document"
+        )
+        pairs: List[ProximityPair] = []
+        for left in range(len(vectors)):
+            if vectors[left] is None:
+                continue
+            for right in range(left + 1, len(vectors)):
+                if vectors[right] is None:
+                    continue
+                similarity = float(
+                    np.dot(vectors[left], vectors[right])
+                )
+                if similarity >= float(threshold):
+                    pairs.append(
+                        (left, right, round(similarity, 4))
+                    )
+        return pairs
+
+    async def close(self) -> None:
+        """Close the owned HTTP connection pool."""
+        if self._owns_http_client:
+            await self.http_client.aclose()
 
 
-embedding_engine = EmbeddingFilterEngine(mrl_dim=256)
+embedding_engine = EmbeddingFilterEngine(mrl_dim=settings.EMBEDDING_DIMENSION)
+
+__all__ = [
+    "EmbeddingFilterEngine",
+    "ProximityPair",
+    "Vector",
+    "embedding_engine",
+]

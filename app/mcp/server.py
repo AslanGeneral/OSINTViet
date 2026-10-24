@@ -11,8 +11,8 @@ from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse, Response
 
 from app.core.blackboard import SharedBlackboard
-from app.core.smart_key_router import SmartKeyPoolRouter
 from app.orchestrator.universal_pipeline import UniversalCoScientistPipeline
+from app.services.json_router import build_orchestrator_router
 
 MCP_PROTOCOL_VERSION = "2025-03-26"
 
@@ -44,7 +44,7 @@ TOOL_DEFINITION = {
 
 
 def _default_pipeline_factory() -> UniversalCoScientistPipeline:
-    router = SmartKeyPoolRouter()
+    router = build_orchestrator_router()
     blackboard = SharedBlackboard(task_id="mcp_session")
     return UniversalCoScientistPipeline(router, blackboard)
 

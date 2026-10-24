@@ -25,6 +25,13 @@ keys_pool.json
 # ==== ChromaDB / Vector Store cục bộ ====
 data/chroma_db/
 
+# ==== Sandbox tạm thời ====
+/tmp/sandbox/
+
+# ==== Công cụ kiểm thử / type-check ====
+.pytest_cache/
+.mypy_cache/
+
 # ==== Hệ điều hành ====
 .DS_Store
 Thumbs.db

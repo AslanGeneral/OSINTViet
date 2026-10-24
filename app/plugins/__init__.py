@@ -9,7 +9,7 @@ import pkgutil
 _loaded = False
 
 
-def load_plugins(force: bool = False):
+def load_plugins(force: bool = False) -> None:
     """Import mọi module con để các decorator @hub.register_... tự đăng ký."""
     global _loaded
     if _loaded and not force:
