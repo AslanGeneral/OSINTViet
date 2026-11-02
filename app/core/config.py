@@ -105,6 +105,22 @@ class Settings(BaseSettings):
     WORKFLOW_ARIMA_FORECAST_STEPS: int = 6
     WORKFLOW_MIN_STATS_POINTS: int = 30
 
+    # ==== SPEC-MACRO-QUANT v5.7 workflow stage ====
+    # The panel is cached under ./cache (gitignored); no database or fixture is
+    # committed.  The full run uses 8,192 particles and 50 Wasserstein medoids.
+    MACRO_STRESS_PANEL_CACHE_DIR: str = "./cache/world_bank_panel"
+    MACRO_STRESS_CACHE_TTL_HOURS: float = 168.0
+    MACRO_STRESS_N_PARTICLES: int = 8192
+    MACRO_STRESS_K_REP: int = 50
+    MACRO_STRESS_M_CAND: int = 250
+    MACRO_STRESS_CMA_POPULATION: int = 32
+    MACRO_STRESS_CMA_GENERATIONS: int = 50
+    MACRO_STRESS_HORIZON: int = 4
+    MACRO_STRESS_ENABLE_MICRO: bool = True
+    MACRO_STRESS_FIRM_COUNT: int = 1600
+    MACRO_STRESS_FIRM_DATA_PATH: str = ""
+    MACRO_STRESS_ENABLE_LEGACY_ARIMA_THEORY: bool = False
+
     # ==== [DT §6.2] Key Pool ====
     # keys_pool.json nằm trong .gitignore; nếu không có file thì đọc
     # GEMINI_API_KEYS (danh sách phẩy cách) + EXTRA_API_KEYS.
@@ -113,6 +129,8 @@ class Settings(BaseSettings):
     # Hệ số thăm dò c của công thức UCB1 (tượng trưng — không nguồn nào cho số)
     UCB1_EXPLORATION_C: float = 1.0
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
 settings = Settings()

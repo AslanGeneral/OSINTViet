@@ -1,0 +1,75 @@
+"""Locked numerical kernel adapter for the CLIO-CUSP 8192 v4.0 module.
+
+The production numerical primitives live in the repository-level
+``clio_cusp_8192_v4_kernel.py`` file (declared in ``pyproject.toml``).  This
+module makes that dependency explicit and gives the package a single import
+surface, so the orchestration layer never reaches into the root module.
+"""
+
+from __future__ import annotations
+
+from clio_cusp_8192_v4_kernel import (
+    AGE_YOUTH_BULGE,
+    ALPHA_CPT,
+    BETA_PM25,
+    BETA_TEMP,
+    BETA_VULN,
+    F_MIL_OPT,
+    GAMMA_RAIN,
+    H_HORIZON,
+    K_EPSTEIN,
+    LAMBDA_CPT,
+    M_BITS,
+    M_PARTICLES,
+    NU_STAR_LIMIT,
+    R_REPLICATES,
+    SIGMA_C_GRAN,
+    T_ACT_EPSTEIN,
+    T_NAE_CELSIUS,
+    U_CLIP_EPS,
+    EventIngestionService,
+    build_signed_leiden_partitions,
+    build_sobol_state,
+    clio_cusp_v4_array_mrqmc_step,
+    compute_asi_outcome,
+    compute_coup_attempt_logit,
+    compute_cusp_barrier_and_crit,
+    compute_cusp_parameters,
+    compute_emp,
+    compute_military_fragmentation,
+    compute_mmp_aug,
+    compute_power_metrics,
+    compute_rdi,
+    compute_regime_defense_index,
+    compute_sclerosis,
+    compute_severity_score,
+    compute_sfd,
+    compute_signed_bilinear_katz_bonacich,
+    compute_smr,
+    compute_social_amplification,
+    compute_structural_virality_o_n,
+    compute_true_2d_hilbert_rank_permutation,
+    compute_weather_modulators,
+    coup_probabilities,
+    create_event_frame,
+    crowd_size_weight,
+    diffusion_volatility,
+    draw_owen_scrambled_0_13_2_nets,
+    forecast_timesfm,
+    granovetter_fold,
+    granovetter_participation,
+    load_conflict_encoder,
+    load_timesfm,
+    logistic,
+    penalty_increment,
+    phi1_hochbruck,
+    update_accumulated_bias,
+    update_hawkes_state,
+    update_latent_discontent,
+    update_penalty_state,
+    update_psi,
+    vulnerability_amplifier,
+    xy_to_hilbert_13bit,
+)
+
+__all__ = [name for name in globals() if not name.startswith("_")]

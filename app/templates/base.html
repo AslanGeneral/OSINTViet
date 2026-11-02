@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}OSINTViet | Sáng kiến Giải mã Vĩ mô & Sức đề kháng Dân sinh{% endblock %}</title>
+  <meta name="description" content="Nền tảng phân tích thông tin bất đối xứng và chuyển hóa chính sách kinh tế vĩ mô thành dữ liệu vi mô bảo vệ ngân sách gia đình Việt Nam.">
+  
+  <!-- Google Fonts: Inter (Sans), Merriweather (Serif), JetBrains Mono (Monospace) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'brand-dark': '#111827',
+            'brand-accent': '#9B1C31',
+            'brand-subtle': '#FFF5F7',
+            'brand-border': '#E5E7EB',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            serif: ['Merriweather', 'Georgia', 'serif'],
+            mono: ['"JetBrains Mono"', 'Courier', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Custom Editorial Stylesheet -->
+  <link rel="stylesheet" href="/static/css/custom.css">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="flex flex-col min-h-screen bg-white text-brand-dark antialiased selection:bg-brand-accent selection:text-white">
+
+  <!-- Top Navigation Bar (IWI Editorial Style) -->
+  <header class="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur-sm shadow-sm transition-all">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <!-- Brand Logo & Subtitle -->
+        <div class="flex items-center space-x-3">
+          <a href="/" class="group flex items-center space-x-3 text-left">
+            <div class="w-8 h-8 bg-brand-accent text-white flex items-center justify-center font-serif font-bold text-lg shadow-sm border border-brand-accent">
+              O
+            </div>
+            <div class="flex flex-col">
+              <span class="font-serif font-bold text-2xl tracking-tight text-brand-dark group-hover:text-brand-accent transition-colors">
+                OSINTViet
+              </span>
+              <span class="font-mono text-[10px] uppercase tracking-widest text-gray-500 font-medium">
+                Macro-to-Micro Initiative
+              </span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Desktop Navigation Links -->
+        <nav class="hidden md:flex items-center space-x-7" aria-label="Main Navigation">
+          <a href="/reading-room" class="text-sm font-medium text-gray-700 hover:text-brand-accent hover:border-b-2 hover:border-brand-accent py-2 transition-all">
+            Bài viết
+          </a>
+          <a href="/indicating-room" class="text-sm font-medium text-gray-700 hover:text-brand-accent hover:border-b-2 hover:border-brand-accent py-2 transition-all">
+            Chỉ số OSINT
+          </a>
+          <a href="/analysis-room" class="text-sm font-medium text-gray-700 hover:text-brand-accent hover:border-b-2 hover:border-brand-accent py-2 transition-all">
+            Tính toán vi mô
+          </a>
+          <a href="/co-scientist-lab" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-brand-accent hover:border-b-2 hover:border-brand-accent py-2 transition-all">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 status-pulse-green"></span>
+            AI Co-Scientist
+          </a>
+          <a href="/pipeline-v2" class="text-sm font-medium text-gray-700 hover:text-brand-accent hover:border-b-2 hover:border-brand-accent py-2 transition-all">
+            Hướng dẫn V2
+          </a>
+          <a href="/about" class="text-sm font-medium text-gray-700 hover:text-brand-accent hover:border-b-2 hover:border-brand-accent py-2 transition-all">
+            Giới thiệu
+          </a>
+        </nav>
+
+        <!-- Right Side: Admin Access Pill Button & Mobile Toggle -->
+        <div class="flex items-center space-x-4">
+          <a href="/admin" id="admin_access_button" class="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-mono font-medium text-gray-700 bg-gray-50 border border-gray-300 hover:border-brand-accent hover:text-brand-accent hover:bg-white shadow-2xs transition-all">
+            Admin 🔒
+          </a>
+
+          <!-- Mobile Menu Hamburger -->
+          <button type="button" id="mobile_menu_button" class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-brand-dark hover:bg-gray-100 focus:outline-none" aria-label="Toggle navigation menu">
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div id="mobile_nav_menu" class="hidden md:hidden border-t border-gray-200 bg-white px-4 pt-3 pb-5 space-y-2">
+      <a href="/reading-room" class="block px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-brand-accent">
+        Bài viết
+      </a>
+      <a href="/indicating-room" class="block px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-brand-accent">
+        Chỉ số OSINT
+      </a>
+      <a href="/analysis-room" class="block px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-brand-accent">
+        Tính toán vi mô
+      </a>
+      <a href="/co-scientist-lab" class="flex items-center px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-brand-accent">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 status-pulse-green"></span>
+        AI Co-Scientist
+      </a>
+      <a href="/pipeline-v2" class="block px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-brand-accent">
+        Hướng dẫn Pipeline V2
+      </a>
+      <a href="/about" class="block px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-brand-accent">
+        Giới thiệu
+      </a>
+      <div class="pt-2 border-t border-gray-100">
+        <a href="/admin" class="block px-3 py-2 text-sm font-mono text-gray-600 hover:text-brand-accent">
+          Cổng Quản Trị Hệ Thống (Admin 🔒)
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Body Content Block -->
+  <main class="flex-grow">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Scholarly Footer (4 Columns Desktop) -->
+  <footer class="bg-gray-50 border-t border-gray-200 text-gray-600 text-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-10">
+        
+        <!-- Column 1 & 2: Mission Statement on Economic Resilience & Irregular Information Defense -->
+        <div class="md:col-span-2 space-y-4">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-6 h-6 bg-brand-accent text-white flex items-center justify-center font-serif font-bold text-xs">
+              O
+            </div>
+            <span class="font-serif font-bold text-lg text-brand-dark tracking-tight">OSINTViet</span>
+            <span class="font-mono text-xs text-brand-accent font-semibold px-2 py-0.5 bg-brand-subtle border border-brand-accent/20">
+              Macro-to-Micro
+            </span>
+          </div>
+          <p class="text-gray-700 leading-relaxed text-justify pr-0 md:pr-8">
+            Sứ mệnh nghiên cứu và củng cố sức đề kháng kinh tế quốc gia thông qua giải mã dữ liệu vĩ mô, phân tích thông tin bất đối xứng và cung cấp lá chắn nhận thức cho từng hộ gia đình Việt Nam trước các cú sốc thị trường biến động phức hợp.
+          </p>
+          <div class="flex items-center space-x-4 pt-2 text-xs font-mono text-gray-500">
+            <span class="inline-flex items-center">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+              Neuro-Symbolic Engine Active
+            </span>
+            <span>•</span>
+            <span>CEGAR Loop Verified</span>
+            <span>•</span>
+            <span>HMAC-SHA256 Receipts</span>
+          </div>
+        </div>
+
+        <!-- Column 3: Subsystem Links -->
+        <div class="space-y-3">
+          <h3 class="font-mono text-xs font-bold uppercase tracking-wider text-brand-dark border-b border-gray-200 pb-2">
+            Phân Hệ Nghiên Cứu
+          </h3>
+          <ul class="space-y-2.5 text-sm">
+            <li>
+              <a href="/reading-room" class="hover:text-brand-accent hover:underline transition-colors flex items-center justify-between">
+                <span>Phòng Đọc (Reading Room)</span>
+                <span class="font-mono text-xs text-gray-400">→</span>
+              </a>
+            </li>
+            <li>
+              <a href="/indicating-room" class="hover:text-brand-accent hover:underline transition-colors flex items-center justify-between">
+                <span>Chỉ Số OSINT (Indicating Room)</span>
+                <span class="font-mono text-xs text-gray-400">→</span>
+              </a>
+            </li>
+            <li>
+              <a href="/analysis-room" class="hover:text-brand-accent hover:underline transition-colors flex items-center justify-between">
+                <span>Tính Toán Vi Mô (Micro Analytics)</span>
+                <span class="font-mono text-xs text-gray-400">→</span>
+              </a>
+            </li>
+            <li>
+              <a href="/co-scientist-lab" class="hover:text-brand-accent hover:underline transition-colors flex items-center justify-between">
+                <span>AI Co-Scientist Laboratory</span>
+                <span class="font-mono text-xs text-gray-400">→</span>
+              </a>
+            </li>
+            <li>
+              <a href="/admin" class="hover:text-brand-accent hover:underline transition-colors flex items-center justify-between">
+                <span>Cổng Quản Trị Hệ Thống (Admin)</span>
+                <span class="font-mono text-xs text-gray-400">🔒</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Column 4: Open Source, MIT License, GitHub & Credit -->
+        <div class="space-y-3">
+          <h3 class="font-mono text-xs font-bold uppercase tracking-wider text-brand-dark border-b border-gray-200 pb-2">
+            Mã Nguồn & Bản Quyền
+          </h3>
+          <p class="text-xs text-gray-600 leading-relaxed">
+            Dự án phát triển theo chuẩn nghiên cứu mở phi thương mại, bảo vệ quyền riêng tư người dùng.
+          </p>
+          <div class="pt-1">
+            <a href="https://github.com/AslanGeneral/OSINTViet" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-3 py-1.5 text-xs font-mono font-medium rounded border border-gray-300 bg-white text-gray-700 hover:border-brand-dark hover:text-brand-dark shadow-2xs transition-all">
+              <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+              </svg>
+              GitHub (MIT License)
+            </a>
+          </div>
+          <p class="text-xs text-gray-500 pt-2 italic">
+            Lấy cảm hứng từ phong cách học thuật và tư duy phân tích chiến lược của <strong>Irregular Warfare Initiative (IWI)</strong>.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Bottom Bar: Copyright & Non-profit Disclaimer -->
+      <div class="mt-12 pt-6 border-t border-gray-200 flex flex-col md:flex-row items-center justify-between text-xs text-gray-500 font-mono space-y-3 md:space-y-0">
+        <div>
+          © 2026 OSINTViet Platform (AslanGeneral/OSINTViet). Bảo lưu mọi quyền theo giấy phép MIT.
+        </div>
+        <div class="text-center md:text-right text-gray-500">
+          Dự án nghiên cứu phi lợi nhuận phục vụ sức đề kháng kinh tế & an ninh thông tin dân sinh.
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Core Javascript -->
+  <script src="/static/js/main.js"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

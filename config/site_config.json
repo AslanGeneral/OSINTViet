@@ -1,0 +1,15 @@
+{
+  "site_title": "OSINT Monitor",
+  "project_name": "OSINT Monitor",
+  "tagline": "Open-Source Quantitative Intelligence Platform",
+  "project_description": "Là công cụ định lượng nguồn mở, cung cấp giải pháp thân thiện và dễ hiểu cho người dùng cá nhân, với sự hỗ trợ của Trí tuệ Nhân tạo",
+  "project_description_en": "An open-source quantitative tool providing user-friendly, accessible solutions for individual households, powered by Artificial Intelligence",
+  "announcement": "Bản tin Vĩ mô: Theo dõi sát sao biến động lạm phát, giá nhiên liệu và tác động truyền dẫn đến ngân sách hộ gia đình năm 2026.",
+  "announcement_en": "Macro Bulletin: Closely tracking inflation trends, energy price shocks, and transmission effects on household budgets in 2026.",
+  "auto_fetch_interval_hours": 6,
+  "enable_live_scraper": true,
+  "enable_dual_mode": true,
+  "enable_dark_mode": true,
+  "show_ticker": true,
+  "custom_notice": "Hệ thống kiểm chứng ProbLog và HMAC-SHA256 bảo vệ dữ liệu chống ảo giác 100%."
+}

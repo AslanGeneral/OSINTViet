@@ -7,9 +7,9 @@ Examples:
 
 Every invocation fetches a random current economics article through headless
 Chromium (``--query`` only changes the orchestration question), analyzes it with
-JSON-schema-constrained local LLM calls, runs the real World Bank series through
-ARIMA-GARCH, executes the universal orchestrator, and writes the recheck
-envelope as JSON.
+JSON-schema-constrained local LLM calls, runs the real World Bank 36-series
+panel through SPEC-MACRO-QUANT v5.7, executes the universal orchestrator with
+the v5.7 theory plugin, and writes the recheck envelope as JSON.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from pathlib import Path
 
 from app.services.full_circle_workflow import FullCircleWorkflow
 from app.services.embedding_engine import embedding_engine
-from app.services.economic_series import stats_summary
+from app.services.macro_stress import macro_stress_summary
 
 
 async def _run(args: argparse.Namespace) -> int:
@@ -58,9 +58,9 @@ async def _run(args: argparse.Namespace) -> int:
             if envelope.word_filter
             else None
         ),
-        "stats": (
-            stats_summary(envelope.stats_artifact)
-            if envelope.stats_artifact
+        "macro_stress": (
+            macro_stress_summary(envelope.macro_stress_artifact)
+            if envelope.macro_stress_artifact
             else None
         ),
         "orchestration": envelope.orchestration_meta,
@@ -87,6 +87,30 @@ async def _run(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
+    argv = sys.argv[1:]
+    # Pipeline v2 owns a distinct flag set.  Dispatching before the legacy
+    # parser keeps old commands working exactly as before while making
+    # ``--mode`` a single entry point for the new pipeline.
+    if argv and (
+        argv[0] in {"quarantine-list", "quarantine-delete"}
+        or any(
+            flag in argv
+            for flag in (
+                "--mode",
+                "--context-file",
+                "--household-file",
+                "--allow-dual",
+                "--skip-orchestrator",
+                "--byok-stdin",
+                "--live",
+                "--dry-run",
+            )
+        )
+    ):
+        from app.pipeline_v2.cli import main as pipeline_main
+
+        return pipeline_main(argv)
+
     parser = argparse.ArgumentParser(description="Live full-circle OSINT macro workflow")
     parser.add_argument(
         "--query",

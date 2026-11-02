@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Cổng Quản Trị Hệ Thống (Admin Portal) | OSINTViet{% endblock %}
+
+{% block content %}
+<section class="py-12 bg-gray-50 border-b border-gray-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl">
+      <div class="flex items-center space-x-2 mb-2">
+        <span class="editorial-kicker text-brand-accent">ADMINISTRATION PORTAL</span>
+        <span class="text-xs font-mono text-gray-500">🔒 SECURE AREA</span>
+      </div>
+      <h1 class="font-serif text-3xl sm:text-4xl font-bold text-brand-dark mt-1 mb-2">
+        Cổng Quản Trị Hệ Thống &amp; Điều Khiển Bot Cào Dữ Liệu
+      </h1>
+      <p class="text-xs sm:text-sm text-gray-600">
+        Kích hoạt crawler Playwright, kiểm tra trạng thái cơ sở dữ liệu SQLite/ChromaDB và cấu hình động cơ suy luận.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="py-12 bg-white">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      
+      <!-- Scraper Control Card -->
+      <div class="border border-gray-200 p-6 md:p-8 space-y-5 bg-white shadow-2xs">
+        <div class="border-b border-gray-200 pb-3">
+          <span class="editorial-kicker text-brand-accent">PLAYWRIGHT SCRAPER ORCHESTRATION</span>
+          <h2 class="font-serif text-xl font-bold text-brand-dark mt-1">
+            Kích Hoạt Thu Thập Dữ Liệu Tự Động
+          </h2>
+        </div>
+        <p class="text-xs text-gray-600">
+          Chạy bot Chromium Playwright không đầu (headless) để cào dữ liệu giá xăng dầu Petrolimex và chỉ số kinh tế mới nhất.
+        </p>
+
+        <form id="admin_scraper_form" class="space-y-4">
+          <div>
+            <label for="admin_passcode" class="block text-xs font-mono font-medium text-gray-700 mb-1">
+              Khóa Quản Trị (Admin Passcode):
+            </label>
+            <input type="password" id="admin_passcode" value="vro_change_this_secret_passcode_123" class="w-full text-xs font-mono p-2.5 border border-gray-300 focus:border-brand-accent outline-none">
+          </div>
+          <button type="button" id="btn_trigger_scraper" class="w-full py-2.5 bg-brand-accent hover:bg-[#801426] text-white text-xs font-mono font-semibold uppercase tracking-wider transition-colors">
+            Khởi Chạy Bot Cào Dữ Liệu (Trigger Scraper) 🚀
+          </button>
+        </form>
+
+        <div id="scraper_status_box" class="hidden p-3 bg-gray-50 border border-gray-200 font-mono text-xs text-gray-700"></div>
+      </div>
+
+      <!-- System Health Diagnostics -->
+      <div class="border border-gray-200 p-6 md:p-8 space-y-4 bg-gray-50">
+        <div class="border-b border-gray-200 pb-3">
+          <span class="editorial-kicker text-brand-accent">DIAGNOSTICS &amp; TELEMETRY</span>
+          <h2 class="font-serif text-xl font-bold text-brand-dark mt-1">
+            Thông Số Sức Khỏe Máy Chủ
+          </h2>
+        </div>
+
+        <div class="font-mono text-xs space-y-3">
+          <div class="flex justify-between border-b border-gray-200 pb-2">
+            <span class="text-gray-500">API Gateway:</span>
+            <span class="text-emerald-700 font-bold">FastAPI / Starlette 0.143</span>
+          </div>
+          <div class="flex justify-between border-b border-gray-200 pb-2">
+            <span class="text-gray-500">Database Engine:</span>
+            <span class="text-gray-800">SQLite + aiosqlite (osint_macro.db)</span>
+          </div>
+          <div class="flex justify-between border-b border-gray-200 pb-2">
+            <span class="text-gray-500">Vector Collection:</span>
+            <span class="text-gray-800">osint_macro_knowledge</span>
+          </div>
+          <div class="flex justify-between border-b border-gray-200 pb-2">
+            <span class="text-gray-500">CEGAR Loop Attestation:</span>
+            <span class="text-emerald-700 font-bold">HMAC-SHA256 Active</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Jinja2 Template Engine:</span>
+            <span class="text-emerald-700 font-bold">Loaded (v3.1.6)</span>
+          </div>
+        </div>
+
+        <div class="pt-4">
+          <a href="/health" target="_blank" class="text-xs font-mono text-brand-accent underline hover:text-[#801426]">
+            Xem JSON Health Check trực tiếp (/health) →
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.getElementById('btn_trigger_scraper')?.addEventListener('click', async () => {
+    const passcode = document.getElementById('admin_passcode').value;
+    const box = document.getElementById('scraper_status_box');
+    box.classList.remove('hidden');
+    box.innerHTML = '<span class="text-gray-500 animate-pulse">Đang gửi tín hiệu kích hoạt crawler...</span>';
+
+    try {
+      const resp = await fetch('/api/v1/admin/trigger-scraper', {
+        method: 'POST',
+        headers: {
+          'X-Admin-Passcode': passcode
+        }
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        box.innerHTML = `<span class="text-red-600 font-bold">Lỗi (${resp.status}): ${data.detail || 'Khóa quản trị không hợp lệ!'}</span>`;
+      } else {
+        box.innerHTML = `<span class="text-emerald-600 font-bold">Thành công: ${data.message}</span>`;
+      }
+    } catch (e) {
+      box.innerHTML = `<span class="text-red-600">Lỗi kết nối: ${e.message}</span>`;
+    }
+  });
+</script>
+{% endblock %}

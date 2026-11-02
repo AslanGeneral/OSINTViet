@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
 
+from app.core.config import settings
 from app.core.plugin_registry import hub
 from app.schemas.workflow_schema import StatsArtifact
 
@@ -59,12 +60,17 @@ def _record_invocation(evidence: Dict[str, Any], parameters: Dict[str, Any]) -> 
     )
 
 
-@hub.register_theory_algo("arima_garch")
 async def arima_garch_theory(
     parameters: Dict[str, Any] | None = None,
     **_: Any,
 ) -> Dict[str, Any]:
-    """Return the validated ARIMA-GARCH evidence as a JSON object."""
+    """Legacy ARIMA-GARCH evidence loader.
+
+    This function is intentionally *not* registered by default.  SPEC-MACRO-
+    QUANT v5.7 is the default theoretical algorithm; the old stage remains
+    available only when an operator explicitly enables it for compatibility or
+    a historical replay.
+    """
     parameters = parameters or {}
     try:
         artifact = _load_artifact()
@@ -124,6 +130,10 @@ async def arima_garch_theory(
     }
     _record_invocation(evidence, parameters)
     return evidence
+
+
+if settings.MACRO_STRESS_ENABLE_LEGACY_ARIMA_THEORY:
+    hub.register_theory_algo("arima_garch_legacy")(arima_garch_theory)
 
 
 __all__ = ["arima_garch_theory"]

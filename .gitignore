@@ -32,6 +32,10 @@ data/chroma_db/
 .pytest_cache/
 .mypy_cache/
 
+# ==== Node / Frontend ====
+frontend/node_modules/
+frontend/.npm/
+
 # ==== Hệ điều hành ====
 .DS_Store
 Thumbs.db

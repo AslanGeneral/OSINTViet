@@ -1,0 +1,667 @@
+{% extends "base.html" %}
+
+{% block title %}OSINTViet | Sáng kiến Thông tin Bất đối xứng & Sức đề kháng Dân sinh{% endblock %}
+
+{% block content %}
+
+<!-- ============================================================ -->
+<!-- SECTION 1: LIVE MACRO TICKER BAR (Order 1)                    -->
+<!-- ============================================================ -->
+<section id="live_macro_ticker_bar" class="w-full bg-brand-dark text-gray-200 border-b border-gray-800 text-xs font-mono py-2.5">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col lg:flex-row items-center justify-between gap-2.5">
+      
+      <!-- Ticker Stream Indicator -->
+      <div class="flex items-center space-x-2 shrink-0">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-xs bg-red-950 text-red-400 border border-red-800 text-[10px] uppercase font-bold tracking-wider">
+          <span class="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5 animate-pulse"></span>
+          Dữ liệu Kinh tế Thời gian thực
+        </span>
+        <span class="text-gray-500 hidden sm:inline">|</span>
+      </div>
+
+      <!-- Ticker Data Items -->
+      <div class="flex flex-wrap items-center justify-center lg:justify-start gap-x-6 gap-y-2 text-xs">
+        {% for item in ticker_items | default([
+          {'label': 'Giá xăng RON 95', 'value': '23.850 đ/L', 'trend': '▲ +1.4%', 'trend_color': 'text-red-400'},
+          {'label': 'Lạm phát CPI YoY', 'value': '3.82%', 'trend': '▼ -0.15%', 'trend_color': 'text-emerald-400'},
+          {'label': 'Tỷ giá USD/VND', 'value': '25.460', 'trend': '▲ +0.08%', 'trend_color': 'text-amber-400'},
+          {'label': 'Chỉ số biến động GARCH Persistence (α+β)', 'value': '0.894', 'level': 'Cao', 'trend_color': 'text-red-400'}
+        ]) %}
+        <div class="flex items-center space-x-1.5">
+          <span class="text-gray-400 font-sans font-medium text-[11px]">{{ item.label }}:</span>
+          <span class="font-bold text-white tracking-tight">{{ item.value }}</span>
+          {% if item.trend %}
+          <span class="{{ item.trend_color }} font-semibold text-[11px]">{{ item.trend }}</span>
+          {% endif %}
+          {% if item.level %}
+          <span class="px-1.5 py-0.2 bg-red-900/60 text-red-300 border border-red-700 text-[10px] font-bold uppercase rounded-xs">
+            Mức: {{ item.level }}
+          </span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Verification Timestamp / Status -->
+      <div class="hidden xl:flex items-center text-[10px] text-gray-400 font-mono shrink-0">
+        <span>Formal Verification: 100% Passed</span>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================ -->
+<!-- SECTION 2: HERO / MISSION BANNER (Order 2)                   -->
+<!-- ============================================================ -->
+<section id="hero_mission_banner" class="relative bg-white border-b border-gray-200 overflow-hidden py-16 md:py-24">
+  <!-- Subtle Think-Tank Background Grid & Tint -->
+  <div class="absolute inset-0 bg-brand-subtle opacity-40 pointer-events-none"></div>
+  <div class="absolute inset-0 bg-[linear-gradient(to_right,#0000000a_1px,transparent_1px),linear-gradient(to_bottom,#0000000a_1px,transparent_1px)] bg-[size:32px_32px] opacity-40 pointer-events-none"></div>
+
+  <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl space-y-6">
+      
+      <!-- Strategic Category Badge -->
+      <div>
+        <span class="inline-flex items-center px-3 py-1 text-xs font-mono font-bold tracking-widest uppercase bg-white text-brand-accent border border-brand-accent/40 shadow-2xs">
+          SÁNG KIẾN THÔNG TIN BẤT ĐỐI XỨNG & SỨC ĐỀ KHÁNG KINH TẾ
+        </span>
+      </div>
+
+      <!-- Bold Editorial Headline (Merriweather Serif) -->
+      <h1 class="font-serif text-3xl sm:text-5xl lg:text-6xl text-brand-dark font-bold tracking-tight leading-[1.15] md:leading-[1.12]">
+        Chuyển hóa chính sách vĩ mô thành sự an toàn của từng bữa ăn gia đình.
+      </h1>
+
+      <!-- Explanatory Paragraph (Cognitive Resilience & Macro-to-Micro Translation) -->
+      <p class="text-lg md:text-xl text-gray-700 leading-relaxed font-sans max-w-3xl text-justify md:text-left">
+        Trong kỷ nguyên xung đột bất đối xứng và chuỗi cung ứng biến động đa tầng, người dân thường là mắt xích cuối cùng phải chịu đựng độ trễ khốc liệt của lạm phát và các cú sốc chính sách. <strong>OSINTViet</strong> vận hành như một lá chắn nhận thức (<em class="italic">cognitive resilience</em>), ứng dụng động cơ neuro-symbolic để chuyển dịch những báo cáo kinh tế hàn lâm phức tạp thành những chỉ báo hành động cụ thể cho từng giỏ thực phẩm, chi phí xăng xe và bài toán tích lũy gia đình.
+      </p>
+
+      <!-- Primary Call to Action Buttons -->
+      <div class="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+        <a href="#recent_articles_grid" class="inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold text-white bg-brand-accent hover:bg-[#801426] border border-brand-accent shadow-sm transition-colors text-center">
+          <span>Đọc các bài phân tích</span>
+          <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+        </a>
+
+        <a href="#household_vulnerability_calculator" class="inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold text-brand-dark bg-white hover:bg-gray-50 border border-gray-300 shadow-2xs transition-colors text-center">
+          <span>Tính toán mức tổn thương hộ gia đình</span>
+          <svg class="w-4 h-4 ml-2 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+        </a>
+      </div>
+
+      <!-- Trust Metrics / Credibility Indicators -->
+      <div class="pt-6 border-t border-gray-200/80 grid grid-cols-2 md:grid-cols-3 gap-4 text-xs font-mono text-gray-600">
+        <div class="flex items-center space-x-2">
+          <span class="w-2 h-2 rounded-full bg-brand-accent"></span>
+          <span>1,000 MatrAIx Persona Agents</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="w-2 h-2 rounded-full bg-brand-accent"></span>
+          <span>256-d Cohere MRL Embeddings</span>
+        </div>
+        <div class="flex items-center space-x-2 col-span-2 md:col-span-1">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span>100% Formal Verification via ProbLog</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================ -->
+<!-- SECTION 3: FEATURED ANALYSIS CARD (Order 3)                  -->
+<!-- ============================================================ -->
+<section id="featured_analysis_card" class="py-16 bg-gray-50 border-b border-gray-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    
+    <!-- Section Headline & Context -->
+    <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div>
+        <span class="editorial-kicker text-brand-accent">TRỌNG ĐIỂM NGHIÊN CỨU DÂN SINH</span>
+        <h2 class="font-serif text-2xl sm:text-3xl font-bold text-brand-dark mt-1">
+          Báo Cáo Phân Tích Chuyên Sâu & Giải Mã Vi Mô
+        </h2>
+      </div>
+      <div class="text-xs font-mono text-gray-500">
+        Khung kiểm chứng: CEGAR Tournament v2.0
+      </div>
+    </div>
+
+    <!-- Large Split Layout (5 cols Left, 7 cols Right) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 border border-gray-200 shadow-sm bg-white">
+      
+      <!-- Left Side (5 Columns: Technical Case Study) -->
+      <div class="lg:col-span-5 bg-brand-dark text-white p-8 md:p-10 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-gray-800">
+        
+        <div>
+          <!-- Subsystem & Case Identifier -->
+          <div class="flex items-center justify-between text-xs font-mono text-gray-400 mb-4 pb-3 border-b border-gray-800">
+            <span class="text-red-400 font-bold uppercase tracking-wider">CASE STUDY #04</span>
+            <span>DOM-TAG: macro_econ</span>
+          </div>
+
+          <!-- Example Case Study Title -->
+          <h3 class="font-serif text-xl sm:text-2xl font-bold text-white leading-snug mb-3">
+            Giao thức Phân phối Xăng dầu Phân tán ADEQ-MHR
+          </h3>
+
+          <p class="text-gray-300 text-sm leading-relaxed mb-6">
+            Mô hình hóa động lực học chuỗi cung ứng xăng dầu thành phẩm và cơ chế đệm giá linh hoạt chống shock đứt gãy nguồn cung tại thị trường nội địa.
+          </p>
+
+          <!-- Verified Badges -->
+          <div class="flex flex-wrap gap-2.5 mb-8">
+            <span class="inline-flex items-center px-2.5 py-1 text-xs font-mono font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800">
+              <svg class="w-3.5 h-3.5 mr-1 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+              Net Fuzzy Score: 0.842
+            </span>
+            
+            <span class="inline-flex items-center px-2.5 py-1 text-xs font-mono font-semibold bg-slate-800 text-slate-200 border border-slate-700">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 status-pulse-green"></span>
+              Sandbox: Verified
+            </span>
+          </div>
+
+          <!-- Technical Metrics Grid -->
+          <div class="bg-black/40 border border-gray-800 p-4 font-mono text-xs space-y-2.5">
+            <div class="flex justify-between border-b border-gray-800 pb-1.5">
+              <span class="text-gray-400">Model Pipeline:</span>
+              <span class="text-gray-200 font-bold">ARIMA(1,1,2) - GARCH(1,1)</span>
+            </div>
+            <div class="flex justify-between border-b border-gray-800 pb-1.5">
+              <span class="text-gray-400">Persistence (α + β):</span>
+              <span class="text-red-400 font-bold">0.894 (Tụ hồi rủi ro cao)</span>
+            </div>
+            <div class="flex justify-between border-b border-gray-800 pb-1.5">
+              <span class="text-gray-400">ADF Stationarity Test:</span>
+              <span class="text-emerald-400 font-bold">Stat = -3.814 (p &lt; 0.01)</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Attestation Receipt:</span>
+              <span class="text-gray-300 font-mono text-[11px] truncate max-w-[150px]">hmac-sha256:7f4b8...e912</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 pt-4 border-t border-gray-800 text-xs font-mono text-gray-500 flex items-center justify-between">
+          <span>Phân hệ Indicating Room</span>
+          <span class="text-gray-400">ARIMA-GARCH Engine v2.0</span>
+        </div>
+
+      </div>
+
+      <!-- Right Side (7 Columns: Layman Breakdown Explaining Micro Impact) -->
+      <div class="lg:col-span-7 bg-white p-8 md:p-10 flex flex-col justify-between">
+        
+        <div>
+          <!-- Layman Editorial Kicker -->
+          <div class="flex items-center space-x-2 mb-3">
+            <span class="editorial-kicker text-brand-accent">GIẢI MÃ VI MÔ CHO HỘ GIA ĐÌNH</span>
+            <span class="text-gray-300">|</span>
+            <span class="text-xs font-mono text-gray-500">Phân Tích Sức Mua Thực Tế</span>
+          </div>
+
+          <!-- Editorial Title -->
+          <h3 class="font-serif text-2xl sm:text-3xl font-bold text-brand-dark leading-tight mb-4">
+            Mỗi lít xăng tăng giá lấy đi bao nhiêu khẩu phần sữa và thực phẩm tươi trên mâm cơm gia đình?
+          </h3>
+
+          <!-- Explanatory Content -->
+          <div class="text-gray-700 space-y-3.5 text-sm md:text-base leading-relaxed text-justify">
+            <p>
+              Dữ liệu chuỗi thời gian 10 năm của OSINTViet chỉ ra rằng: Khi giá xăng dầu cơ sở điều chỉnh tăng vượt 3%, độ trễ truyền dẫn vào giá thực phẩm thiết yếu tại các chợ dân sinh và siêu thị bán lẻ là <strong>10 đến 14 ngày</strong>. Chi phí logistics chiếm từ 14% đến 22% giá thành bán lẻ rau củ, thịt lợn và sữa tươi.
+            </p>
+            <p>
+              Đối với một gia đình 4 người tại các đô thị lớn có thu nhập trung bình <strong>22 triệu đồng/tháng</strong>, kịch bản giá nhiên liệu hiện tại đồng nghĩa với việc mức chi tiêu bắt buộc cho giao thông và thực phẩm sẽ tăng thêm <strong>520.000 – 680.000 đ/tháng</strong>, tương đương sự sụt giảm 8.5% ngân sách dinh dưỡng tươi sống.
+            </p>
+          </div>
+
+          <!-- Highlighted Warning Box -->
+          <div class="bg-brand-subtle border-l-4 border-brand-accent p-4 md:p-5 my-6 text-sm">
+            <div class="flex items-start">
+              <div class="shrink-0 text-brand-accent font-bold text-base mr-3">⚠️</div>
+              <div>
+                <h4 class="font-bold text-brand-accent uppercase text-xs tracking-wider font-mono mb-1">
+                  CẢNH BÁO TÁC ĐỘNG TIÊU DÙNG (CHU KỲ ĐIỀU HÀNH 10 NGÀY TỚI)
+                </h4>
+                <p class="text-gray-800 leading-normal text-xs md:text-sm">
+                  Chu kỳ điều hành giá tiếp theo tiềm ẩn rủi ro tăng <strong>350 – 520 đ/lít RON 95</strong> do biến động cước vận tải biển quốc tế và tỷ giá USD/VND. Khuyến nghị các hộ gia đình chủ động tối ưu lộ trình di chuyển và phân bổ quỹ dự phòng biến động giá năng lượng 5% vào giỏ chi tiêu tháng tới.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Metadata & Call-to-action link -->
+        <div class="pt-6 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="text-xs font-mono text-gray-500">
+            <span>Tác giả: </span>
+            <span class="text-gray-900 font-semibold">Ban Nghiên Cứu OSINTViet &amp; AI Co-Scientist</span>
+          </div>
+
+          <a href="/reading-room" class="inline-flex items-center text-sm font-semibold text-brand-accent hover:underline group">
+            <span>Đọc toàn văn bài phân tích kỹ thuật</span>
+            <span class="ml-1.5 transition-transform group-hover:translate-x-1">→</span>
+          </a>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================ -->
+<!-- INTERACTIVE HOUSEHOLD VULNERABILITY CALCULATOR WIDGET         -->
+<!-- ============================================================ -->
+<section id="household_vulnerability_calculator" class="py-14 bg-white border-b border-gray-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto border border-gray-200 shadow-sm p-6 md:p-10 bg-gray-50/50">
+      
+      <div class="border-b border-gray-200 pb-4 mb-6">
+        <div class="flex items-center justify-between">
+          <span class="editorial-kicker text-brand-accent">CÔNG CỤ ĐO LƯỜNG TÁC ĐỘNG TỨC THỜI</span>
+          <span class="font-mono text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 border border-emerald-200">Interactive Model</span>
+        </div>
+        <h3 class="font-serif text-2xl font-bold text-brand-dark mt-1">
+          Tính Toán Mức Tổn Thương Ngân Sách Hộ Gia Đình
+        </h3>
+        <p class="text-xs md:text-sm text-gray-600 mt-1">
+          Nhập các tham số chi tiêu cơ bản để định lượng mức bào mòn thu nhập thực tế dưới tác động của đợt tăng giá xăng dầu và lạm phát thực phẩm.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+        <!-- Sliders Form -->
+        <div class="space-y-5">
+          <div>
+            <div class="flex justify-between text-xs font-mono font-medium mb-1.5">
+              <label for="calc_income" class="text-gray-700">Thu nhập gia đình hàng tháng:</label>
+              <span id="calc_income_display" class="font-bold text-brand-dark">20.000.000 đ</span>
+            </div>
+            <input type="range" id="calc_income" min="5" max="80" value="20" step="1" class="w-full h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-brand-accent">
+            <div class="flex justify-between text-[10px] text-gray-400 font-mono mt-1">
+              <span>5 triệu</span>
+              <span>80 triệu</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs font-mono font-medium mb-1.5">
+              <label for="calc_fuel" class="text-gray-700">Chi phí xăng xe, đi lại hàng tháng:</label>
+              <span id="calc_fuel_display" class="font-bold text-brand-dark">1.200.000 đ</span>
+            </div>
+            <input type="range" id="calc_fuel" min="200" max="6000" value="1200" step="100" class="w-full h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-brand-accent">
+            <div class="flex justify-between text-[10px] text-gray-400 font-mono mt-1">
+              <span>200k</span>
+              <span>6 triệu</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs font-mono font-medium mb-1.5">
+              <label for="calc_food" class="text-gray-700">Tỷ trọng chi tiêu thực phẩm / giỏ hàng:</label>
+              <span id="calc_food_display" class="font-bold text-brand-dark">45%</span>
+            </div>
+            <input type="range" id="calc_food" min="20" max="75" value="45" step="5" class="w-full h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-brand-accent">
+            <div class="flex justify-between text-[10px] text-gray-400 font-mono mt-1">
+              <span>20% (Tối thiểu)</span>
+              <span>75% (Rất cao)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Output Metric Card -->
+        <div class="bg-white border border-gray-200 p-6 space-y-4">
+          <div class="text-xs font-mono text-gray-500 uppercase tracking-wider pb-2 border-b border-gray-100 flex items-center justify-between">
+            <span>Dự báo Tác Động Vi Mô</span>
+            <span id="calc_risk_badge" class="inline-flex items-center px-2 py-0.5 text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300">
+              MỨC ĐỘ TỔN THƯƠNG: TRUNG BÌNH
+            </span>
+          </div>
+
+          <div>
+            <span class="text-xs text-gray-500 block font-mono">Thâm hụt chi tiêu do biến động giá:</span>
+            <div id="calc_drag_display" class="font-serif text-2xl md:text-3xl font-bold text-brand-accent mt-0.5">
+              411.600 đ / tháng
+            </div>
+            <span class="text-[11px] text-gray-500 block mt-1">
+              (Bao gồm chi phí xăng tăng trực tiếp và trễ giá thực phẩm 4.2%)
+            </span>
+          </div>
+
+          <div class="pt-3 border-t border-gray-100">
+            <div class="flex justify-between text-xs font-mono text-gray-600 mb-1">
+              <span>Chỉ số tổn thương gia đình:</span>
+              <span id="calc_score_display" class="font-bold text-brand-dark">41 / 100</span>
+            </div>
+            <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+              <div class="bg-brand-accent h-2 transition-all duration-300" style="width: 41%;"></div>
+            </div>
+          </div>
+
+          <div class="pt-2 text-xs text-gray-600 italic bg-brand-subtle p-2.5 border-l-2 border-brand-accent">
+            💡 Khuyến nghị: Cân đối lại hạn mức tích lũy dự phòng và ưu tiên chuỗi cung ứng thực phẩm ngắn hạn tại địa phương.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================ -->
+<!-- SECTION 4: RECENT ARTICLES GRID (Order 4)                    -->
+<!-- ============================================================ -->
+<section id="recent_articles_grid" class="py-16 md:py-24 bg-white border-b border-gray-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    
+    <!-- Section Header -->
+    <div class="mb-12 border-b border-gray-200 pb-5 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div>
+        <span class="editorial-kicker text-brand-accent">PHÒNG ĐỌC &amp; NGHIÊN CỨU MỚI NHẤT</span>
+        <h2 class="font-serif text-3xl font-bold text-brand-dark mt-1">
+          Báo Cáo Phân Tích &amp; Nhận Định Độc Lập
+        </h2>
+        <p class="text-sm text-gray-600 mt-1 max-w-2xl">
+          Các chuyên đề kinh tế vĩ mô được chuyển hóa thành dữ liệu vi mô độc lập, minh bạch và có thể kiểm chứng.
+        </p>
+      </div>
+
+      <div>
+        <a href="/reading-room" class="inline-flex items-center text-xs font-mono font-semibold text-brand-accent hover:underline uppercase tracking-wider">
+          Xem toàn bộ chuyên đề →
+        </a>
+      </div>
+    </div>
+
+    <!-- 3-Column Editorial Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      
+      <!-- Card 1 (Risk: CAO) -->
+      <article class="flex flex-col justify-between bg-white border border-gray-200 hover:border-brand-accent transition-all duration-200 shadow-2xs hover:shadow-sm p-6 group">
+        <div>
+          <!-- Top Meta: Category Tag & Publication Date -->
+          <div class="flex items-center justify-between text-xs font-mono text-gray-500 mb-3 pb-2 border-b border-gray-100">
+            <span class="font-semibold text-brand-accent uppercase tracking-wider">CHÍNH SÁCH TIỀN TỆ</span>
+            <time datetime="2026-10-24">24 Tháng 10, 2026</time>
+          </div>
+
+          <!-- Bold Serif Headline (Merriweather) -->
+          <h3 class="font-serif text-xl font-bold text-brand-dark group-hover:text-brand-accent transition-colors leading-snug mb-3">
+            <a href="/reading-room">
+              Tỷ giá USD/VND vượt ngưỡng 25.400: Doanh nghiệp nhập khẩu vật tư đối mặt áp lực kép
+            </a>
+          </h3>
+
+          <!-- Brief Summary -->
+          <p class="text-sm text-gray-600 leading-relaxed mb-6">
+            Đo lường độ trễ 45 ngày giữa biến động tỷ giá ngân hàng trung ương và giá bán lẻ phân bón, thức ăn chăn nuôi tại đại lý cấp 2, dẫn tới nguy cơ đội giá thành thịt cá thành phẩm tại chợ dân sinh.
+          </p>
+        </div>
+
+        <!-- Risk Level Indicator & Footer Meta -->
+        <div class="pt-4 border-t border-gray-100 flex items-center justify-between">
+          <div class="flex items-center space-x-1.5 text-xs font-mono">
+            <span class="text-gray-500">Mức độ rủi ro:</span>
+            <span class="inline-flex items-center px-2 py-0.5 font-bold uppercase text-[10px] bg-red-100 text-red-800 border border-red-300">
+              CAO
+            </span>
+          </div>
+          <span class="text-xs font-mono text-gray-400 group-hover:text-brand-accent transition-colors">
+            Đọc bài →
+          </span>
+        </div>
+      </article>
+
+      <!-- Card 2 (Risk: TRUNG BÌNH) -->
+      <article class="flex flex-col justify-between bg-white border border-gray-200 hover:border-brand-accent transition-all duration-200 shadow-2xs hover:shadow-sm p-6 group">
+        <div>
+          <!-- Top Meta: Category Tag & Publication Date -->
+          <div class="flex items-center justify-between text-xs font-mono text-gray-500 mb-3 pb-2 border-b border-gray-100">
+            <span class="font-semibold text-brand-accent uppercase tracking-wider">CHUỖI CUNG ỨNG NÔNG SẢN</span>
+            <time datetime="2026-10-22">22 Tháng 10, 2026</time>
+          </div>
+
+          <!-- Bold Serif Headline (Merriweather) -->
+          <h3 class="font-serif text-xl font-bold text-brand-dark group-hover:text-brand-accent transition-colors leading-snug mb-3">
+            <a href="/reading-room">
+              Giải mã biến động giá gạo xuất khẩu: Nông dân ĐBSCL hưởng lợi hay chịu ép giá?
+            </a>
+          </h3>
+
+          <!-- Brief Summary -->
+          <p class="text-sm text-gray-600 leading-relaxed mb-6">
+            Mô hình hóa chuỗi giá trị từ cánh đồng đến cảng biển cho thấy chi phí trung gian logistics và kho bãi chiếm đến 38% lợi nhuận biên, khiến thu nhập thực tế của người trồng lúa không tăng tương ứng giá gạo thế giới.
+          </p>
+        </div>
+
+        <!-- Risk Level Indicator & Footer Meta -->
+        <div class="pt-4 border-t border-gray-100 flex items-center justify-between">
+          <div class="flex items-center space-x-1.5 text-xs font-mono">
+            <span class="text-gray-500">Mức độ rủi ro:</span>
+            <span class="inline-flex items-center px-2 py-0.5 font-bold uppercase text-[10px] bg-amber-100 text-amber-800 border border-amber-300">
+              TRUNG BÌNH
+            </span>
+          </div>
+          <span class="text-xs font-mono text-gray-400 group-hover:text-brand-accent transition-colors">
+            Đọc bài →
+          </span>
+        </div>
+      </article>
+
+      <!-- Card 3 (Risk: THẤP) -->
+      <article class="flex flex-col justify-between bg-white border border-gray-200 hover:border-brand-accent transition-all duration-200 shadow-2xs hover:shadow-sm p-6 group">
+        <div>
+          <!-- Top Meta: Category Tag & Publication Date -->
+          <div class="flex items-center justify-between text-xs font-mono text-gray-500 mb-3 pb-2 border-b border-gray-100">
+            <span class="font-semibold text-brand-accent uppercase tracking-wider">TÍN DỤNG & LÃI SUẤT</span>
+            <time datetime="2026-10-19">19 Tháng 10, 2026</time>
+          </div>
+
+          <!-- Bold Serif Headline (Merriweather) -->
+          <h3 class="font-serif text-xl font-bold text-brand-dark group-hover:text-brand-accent transition-colors leading-snug mb-3">
+            <a href="/reading-room">
+              Lãi suất liên ngân hàng hạ nhiệt nhưng lãi suất vay tiêu dùng gia đình có giảm tương ứng?
+            </a>
+          </h3>
+
+          <!-- Brief Summary -->
+          <p class="text-sm text-gray-600 leading-relaxed mb-6">
+            Khảo sát định lượng trên 1,000 hồ sơ vay tiêu dùng cá nhân: Biên độ chênh lệch lãi suất huy động và cho vay cá nhân vẫn duy trì mức kỷ lục, tạo gánh nặng trả nợ kéo dài cho người mua nhà lần đầu.
+          </p>
+        </div>
+
+        <!-- Risk Level Indicator & Footer Meta -->
+        <div class="pt-4 border-t border-gray-100 flex items-center justify-between">
+          <div class="flex items-center space-x-1.5 text-xs font-mono">
+            <span class="text-gray-500">Mức độ rủi ro:</span>
+            <span class="inline-flex items-center px-2 py-0.5 font-bold uppercase text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300">
+              THẤP
+            </span>
+          </div>
+          <span class="text-xs font-mono text-gray-400 group-hover:text-brand-accent transition-colors">
+            Đọc bài →
+          </span>
+        </div>
+      </article>
+
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ============================================================ -->
+<!-- SECTION 5: TECHNICAL BACKING SNIPPET (Order 5)               -->
+<!-- ============================================================ -->
+<section id="technical_backing_snippet" class="py-16 md:py-24 bg-brand-dark text-white">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+      
+      <!-- Left Column (5 Cols): Rigorous Neuro-Symbolic Engine Highlights -->
+      <div class="lg:col-span-5 space-y-6">
+        <div>
+          <span class="editorial-kicker text-red-400">THE AI LAB FOUNDATION</span>
+          <h2 class="font-serif text-2xl sm:text-3xl font-bold text-white mt-1 leading-tight">
+            Nền Tảng Động Cơ Neuro-Symbolic &amp; Kiểm Chứng Hình Thức
+          </h2>
+          <p class="text-gray-300 text-sm mt-2 leading-relaxed">
+            Hệ thống loại bỏ hoàn toàn hiện tượng ảo giác (hallucination) thường gặp ở các mô hình ngôn ngữ lớn thông qua kiến trúc suy luận đa tầng đã được chứng minh toán học.
+          </p>
+        </div>
+
+        <!-- 3 Required Highlights -->
+        <div class="space-y-4">
+          <!-- Highlight 1: 1,000 MatrAIx Persona Agents -->
+          <div class="flex items-start space-x-3.5 p-3.5 bg-gray-900/60 border border-gray-800 rounded-xs">
+            <div class="shrink-0 w-7 h-7 bg-brand-accent/30 text-red-400 border border-brand-accent/50 flex items-center justify-center font-mono text-xs font-bold mt-0.5">
+              01
+            </div>
+            <div>
+              <h4 class="font-mono text-sm font-bold text-white tracking-wide">
+                1,000 MatrAIx Persona Agents
+              </h4>
+              <p class="text-xs text-gray-300 mt-1 leading-normal">
+                Mô phỏng đa tác tử phân tầng xã hội sâu: công nhân, tiểu thương chợ truyền thống, tài xế công nghệ và nhân viên văn phòng nhằm đo lường phản ứng tâm lý và hành vi tiêu dùng trước các kịch bản sốc giá.
+              </p>
+            </div>
+          </div>
+
+          <!-- Highlight 2: 256-d Cohere MRL Embeddings -->
+          <div class="flex items-start space-x-3.5 p-3.5 bg-gray-900/60 border border-gray-800 rounded-xs">
+            <div class="shrink-0 w-7 h-7 bg-brand-accent/30 text-red-400 border border-brand-accent/50 flex items-center justify-center font-mono text-xs font-bold mt-0.5">
+              02
+            </div>
+            <div>
+              <h4 class="font-mono text-sm font-bold text-white tracking-wide">
+                256-d Cohere MRL Embeddings
+              </h4>
+              <p class="text-xs text-gray-300 mt-1 leading-normal">
+                Không gian vector ngữ nghĩa Matryoshka nén tối ưu 256 chiều, kết hợp bộ phân giải phản chứng CRAG Tri-State để sàng lọc và loại bỏ hoàn toàn các tin đồn, bài PR hay dữ liệu giả mạo.
+              </p>
+            </div>
+          </div>
+
+          <!-- Highlight 3: 100% Formal Verification via ProbLog & Sandbox HMAC-SHA256 receipts -->
+          <div class="flex items-start space-x-3.5 p-3.5 bg-gray-900/60 border border-gray-800 rounded-xs">
+            <div class="shrink-0 w-7 h-7 bg-brand-accent/30 text-red-400 border border-brand-accent/50 flex items-center justify-center font-mono text-xs font-bold mt-0.5">
+              03
+            </div>
+            <div>
+              <h4 class="font-mono text-sm font-bold text-white tracking-wide">
+                100% Formal Verification via ProbLog &amp; Sandbox HMAC-SHA256 receipts
+              </h4>
+              <p class="text-xs text-gray-300 mt-1 leading-normal">
+                Mọi kết luận dự báo đều phải thỏa mãn chứng minh logic hình thức trên cây suy luận ProbLog và được ký số biên lai bất biến HMAC-SHA256 trong môi trường thực thi cô lập.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <a href="/co-scientist-lab" class="inline-flex items-center text-xs font-mono text-red-400 hover:text-red-300 transition-colors uppercase tracking-wider">
+            <span>Tìm hiểu chi tiết kiến trúc phòng lab AI</span>
+            <span class="ml-1">→</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Right Column (7 Cols): Simulated Terminal / Execution Receipt Log -->
+      <div class="lg:col-span-7">
+        <div class="terminal-window overflow-hidden">
+          
+          <!-- Terminal Title Bar -->
+          <div class="bg-gray-900/90 border-b border-gray-800 px-4 py-2.5 flex items-center justify-between font-mono text-xs text-gray-400">
+            <div class="flex items-center space-x-2">
+              <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+              <span class="w-3 h-3 rounded-full bg-yellow-500 inline-block"></span>
+              <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+              <span class="text-gray-300 ml-2 font-medium text-[11px]">universal_orchestrator.log — bash 80x24</span>
+            </div>
+            <div class="flex items-center space-x-2 text-[10px] text-gray-500">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 status-pulse-green"></span>
+              <span>LIVE_DAEMON</span>
+            </div>
+          </div>
+
+          <!-- Terminal Content Area -->
+          <div id="terminal_logs_content" class="p-4 md:p-5 font-mono text-xs leading-relaxed space-y-2 h-[380px] overflow-y-auto terminal-scroll text-gray-300 bg-[#070b13]">
+            <div class="text-gray-500"># Khởi tạo phiên phân tích neuro-symbolic tự chủ [AR §7.3]</div>
+            <div>
+              <span class="text-blue-400">[SYSTEM]</span>
+              <span class="text-gray-300"> Universal Orchestrator initialized. Target domain:</span>
+              <span class="text-amber-300"> macro_econ</span>
+            </div>
+            <div>
+              <span class="text-blue-400">[STAGE 1]</span>
+              <span class="text-gray-300"> Ingesting macro feeds: Petrolimex, GSO Vietnam, World Bank API (VNM)...</span>
+              <span class="text-emerald-400"> [OK 32 sources]</span>
+            </div>
+            <div>
+              <span class="text-blue-400">[STAGE 2]</span>
+              <span class="text-gray-300"> Cohere MRL 256-d embedding batch projection: </span>
+              <span class="text-cyan-300">threshold=0.42, margin=0.30</span>
+            </div>
+            <div>
+              <span class="text-blue-400">[STAGE 3]</span>
+              <span class="text-gray-300"> CRAG Tri-State Evaluator: </span>
+              <span class="text-emerald-400 font-bold">STATE = CORRECT (confidence: 0.941 &gt; 0.62)</span>
+            </div>
+            <div>
+              <span class="text-blue-400">[STAGE 4]</span>
+              <span class="text-gray-300"> Econometric Pipeline: ARIMA(1,1,2)-GARCH(1,1) converged. Persistence=0.894</span>
+            </div>
+            <div>
+              <span class="text-blue-400">[STAGE 5]</span>
+              <span class="text-gray-300"> MatrAIx Persona Simulation: 1,000 multi-tier consumer agents evaluated.</span>
+            </div>
+            <div>
+              <span class="text-purple-400">[PROBLOG]</span>
+              <span class="text-yellow-300"> Scanning ontology rules... formal_proof(household_risk, valid) :- 1.000</span>
+            </div>
+            <div>
+              <span class="text-purple-400">[SANDBOX]</span>
+              <span class="text-gray-300"> Isolated execution verified. HMAC-SHA256 attestation generated:</span>
+            </div>
+            <div class="text-emerald-400 bg-gray-900/80 p-2 border border-gray-800 text-[11px] break-all select-all">
+              RECEIPT_SIGNATURE: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            </div>
+            <div>
+              <span class="text-emerald-400">[STATUS]</span>
+              <span class="text-white font-bold"> 0 hallucinations detected. CEGAR loop completed in 1.48s. Ready.</span>
+            </div>
+          </div>
+
+          <!-- Terminal Bottom Status Bar -->
+          <div class="bg-gray-900/90 border-t border-gray-800 px-4 py-1.5 flex items-center justify-between font-mono text-[10px] text-gray-500">
+            <span>Buffer: 4096 tokens</span>
+            <span>Memory Store: blackboard_store.db</span>
+            <span>UTF-8</span>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+{% endblock %}

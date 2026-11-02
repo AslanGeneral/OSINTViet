@@ -8,6 +8,7 @@
 import argparse
 import asyncio
 import json
+import sys
 
 from app.core.blackboard import SharedBlackboard
 from app.orchestrator.universal_pipeline import UniversalCoScientistPipeline
@@ -52,6 +53,30 @@ def serve_mcp(host: str, port: int):
 
 
 def main():
+    argv = sys.argv[1:]
+    # New pipeline flags are dispatched before the legacy orchestrator CLI so
+    # ``main.py --mode ...`` is one entry point and the old commands remain
+    # byte-for-byte compatible.
+    if argv and (
+        argv[0] in {"quarantine-list", "quarantine-delete"}
+        or any(
+            flag in argv
+            for flag in (
+                "--mode",
+                "--context-file",
+                "--household-file",
+                "--allow-dual",
+                "--skip-orchestrator",
+                "--byok-stdin",
+                "--live",
+                "--dry-run",
+            )
+        )
+    ):
+        from app.pipeline_v2.cli import main as pipeline_main
+
+        raise SystemExit(pipeline_main(argv))
+
     parser = argparse.ArgumentParser(description="OSINTViet Universal Neuro-Symbolic Orchestrator v2.0")
     parser.add_argument("--query", help="Yêu cầu bài toán")
     parser.add_argument("--domain", default="general", help="domain_tag, ví dụ macro_econ")

@@ -5,11 +5,12 @@ Flow:
     -> random live article via headless Chromium
     -> LLM JSON analysis with exact-quote verification
     -> deterministic Vietnamese macro word filter + embedding filter
-    -> real World Bank series -> strict JSON StatsRequest -> ARIMA-GARCH
+    -> real World Bank 36-series panel -> strict JSON MacroStressRequest
+    -> SPEC-MACRO-QUANT v5.7 (8,192 Sobol particles, 50 scenarios, micro bridge)
     -> universal orchestrator with JSON-schema-constrained LLM calls and the
-       ARIMA-GARCH theory plugin
+       macro_stress_v57 theory plugin
     -> JSON output
-    -> deterministic JSON recheck (SQLite, Chroma, ARIMA, LLM trace, sandbox)
+    -> deterministic JSON recheck (SQLite, Chroma, v5.7, LLM trace, sandbox)
 
 No stage consumes free-form LLM prose.  All stage payloads are Pydantic/JSON
 objects, and the final envelope is stored in SQLite ``workflow_runs`` as well as
@@ -46,19 +47,20 @@ from app.schemas.workflow_schema import (
     ArticleAnalysis,
     EvidenceClaim,
     FetchedArticle,
+    MacroStressArtifact,
+    MacroStressRequest,
     RecheckCheck,
     RecheckReport,
-    StatsArtifact,
-    StatsRequest,
     WordFilterResult,
     WorkflowEnvelope,
     utc_now_iso,
 )
-from app.services.economic_series import (
-    build_stats_request,
-    execute_arima_garch,
-)
+from app.math_engine.macro_stress_v57.jcs import sha256_value
 from app.services.embedding_engine import embedding_engine
+from app.services.macro_stress import (
+    build_macro_stress_request,
+    execute_macro_stress,
+)
 from app.services.json_router import build_orchestrator_router
 from app.services.word_filter import (
     analysis_context,
@@ -151,7 +153,11 @@ class FullCircleWorkflow:
                 ),
                 "chroma_collection": settings.CHROMA_COLLECTION_NAME,
                 "database_url": settings.DATABASE_URL,
-                "arima_forecast_steps": settings.WORKFLOW_ARIMA_FORECAST_STEPS,
+                "macro_stress_engine": "SPEC-MACRO-QUANT v5.7",
+                "macro_stress_particles": settings.MACRO_STRESS_N_PARTICLES,
+                "macro_stress_scenarios": settings.MACRO_STRESS_K_REP,
+                "macro_stress_horizon": settings.MACRO_STRESS_HORIZON,
+                "macro_stress_micro": settings.MACRO_STRESS_ENABLE_MICRO,
                 "artifact_dir": str(self.artifact_dir),
             },
         )
@@ -264,43 +270,52 @@ class FullCircleWorkflow:
             envelope.word_filter = accepted_filter
 
             # ---------------------------------------------------------
-            # 3. Stats input JSON -> real series -> ARIMA-GARCH JSON
+            # 3. Real 36-series World Bank panel -> v5.7 JSON artifact
             # ---------------------------------------------------------
-            stats_request = await build_stats_request(
-                accepted_article, accepted_analysis
+            macro_request = await build_macro_stress_request(
+                accepted_article,
+                accepted_analysis,
+                artifact_dir=str(run_dir),
             )
-            envelope.stats_request = stats_request
-            envelope.artifacts["stats_request_json"] = _write_json(
-                run_dir / "stats_request.json",
-                stats_request.model_dump(mode="json"),
+            envelope.macro_stress_request = macro_request
+            envelope.artifacts["macro_stress_request_json"] = _write_json(
+                run_dir / "macro_stress_request.json",
+                macro_request.model_dump(mode="json"),
             )
             await self._persist(envelope)
 
-            stats_artifact = execute_arima_garch(
-                stats_request,
-                forecast_steps=settings.WORKFLOW_ARIMA_FORECAST_STEPS,
+            macro_artifact = execute_macro_stress(
+                macro_request,
+                artifact_dir=str(run_dir),
             )
-            envelope.stats_artifact = stats_artifact
-            stats_result_path = _write_json(
-                run_dir / "stats_result.json",
-                stats_artifact.model_dump(mode="json"),
+            envelope.macro_stress_artifact = macro_artifact
+            macro_result_path = _write_json(
+                run_dir / "macro_stress_artifact.json",
+                macro_artifact.model_dump(mode="json"),
             )
-            envelope.artifacts["stats_result_json"] = stats_result_path
-            if stats_artifact.status != "OK":
+            envelope.artifacts["macro_stress_artifact_json"] = macro_result_path
+            if macro_artifact.status != "OK":
                 raise RuntimeError(
-                    "ARIMA-GARCH failed: " + str(stats_artifact.error)
+                    "SPEC-MACRO-QUANT v5.7 failed: " + str(macro_artifact.error)
                 )
             await self._persist(envelope)
 
             # ---------------------------------------------------------
-            # 4. Orchestrator with JSON-constrained calls + ARIMA plugin
+            # 4. Orchestrator with JSON-constrained calls + v5.7 plugin
             # ---------------------------------------------------------
             load_plugins()
-            arima_invocation_dir = run_dir / "arima_invocations"
-            arima_invocation_dir.mkdir(parents=True, exist_ok=True)
-            envelope.artifacts["arima_invocations_dir"] = str(arima_invocation_dir)
-            os.environ["ARIMA_GARCH_STATS_PATH"] = stats_result_path
-            os.environ["ARIMA_GARCH_INVOCATION_DIR"] = str(arima_invocation_dir)
+            if not settings.MACRO_STRESS_ENABLE_LEGACY_ARIMA_THEORY:
+                hub.theory_algorithms.pop("arima_garch", None)
+                hub.theory_algorithms.pop("arima_garch_legacy", None)
+            macro_invocation_dir = run_dir / "macro_stress_invocations"
+            macro_invocation_dir.mkdir(parents=True, exist_ok=True)
+            envelope.artifacts["macro_stress_invocations_dir"] = str(
+                macro_invocation_dir
+            )
+            os.environ["MACRO_STRESS_ARTIFACT_PATH"] = macro_result_path
+            os.environ["MACRO_STRESS_INVOCATION_DIR"] = str(macro_invocation_dir)
+            if "macro_stress_v57" not in hub.theory_algorithms:
+                raise RuntimeError("macro_stress_v57 theory plugin did not register")
 
             # Isolate negative memory to this run.  The module constant is
             # read by NegativeMemoryCompiler at call time.
@@ -311,7 +326,7 @@ class FullCircleWorkflow:
             envelope.artifacts["compiled_memory_json"] = str(compiled_memory_path)
 
             effective_query = query or self._build_query(
-                accepted_article, accepted_analysis, stats_request
+                accepted_article, accepted_analysis, macro_request
             )
             envelope.query = effective_query
             raw_sources = [accepted_article.model_dump(mode="json")]
@@ -371,7 +386,7 @@ class FullCircleWorkflow:
             # ---------------------------------------------------------
             # 5. Recheck
             # ---------------------------------------------------------
-            recheck = await self._recheck(envelope, arima_invocation_dir)
+            recheck = await self._recheck(envelope, macro_invocation_dir)
             envelope.recheck = recheck
             if not recheck.passed:
                 envelope.status = "failed_recheck"
@@ -493,15 +508,16 @@ class FullCircleWorkflow:
     def _build_query(
         article: FetchedArticle,
         analysis: ArticleAnalysis,
-        stats_request: StatsRequest,
+        macro_request: MacroStressRequest,
     ) -> str:
         return (
             f"Phân tích tác động kinh tế vĩ mô của bài báo '{article.title}'. "
             f"Bối cảnh: {analysis.topic_vi or analysis.summary_vi or article.summary[:300]}. "
-            f"Đối chiếu với chuỗi thật {stats_request.series_name} "
-            f"({stats_request.indicator_code}, {stats_request.point_count} điểm). "
-            "Đề xuất cơ chế truyền dẫn, rủi ro và khuyến nghị có thể kiểm chứng; "
-            "không bịa số liệu hoặc nguồn."
+            "Đối chiếu với panel thật 36 chuỗi Việt Nam "
+            f"({macro_request.panel.n_dates} năm, {macro_request.panel.missing_cells} ô thiếu) "
+            "và artifact SPEC-MACRO-QUANT v5.7 đã ký SHA-256. "
+            "Đề xuất cơ chế truyền dẫn, rủi ro, so sánh kịch bản thụ động/chủ động "
+            "và khuyến nghị có thể kiểm chứng; không bịa số liệu hoặc nguồn."
         )
 
     # ------------------------------------------------------------------
@@ -530,7 +546,7 @@ class FullCircleWorkflow:
     async def _recheck(
         self,
         envelope: WorkflowEnvelope,
-        arima_invocation_dir: Path,
+        macro_invocation_dir: Path,
     ) -> RecheckReport:
         checks: List[RecheckCheck] = []
 
@@ -552,8 +568,8 @@ class FullCircleWorkflow:
         article = envelope.article
         analysis = envelope.analysis
         word_filter = envelope.word_filter
-        stats_request = envelope.stats_request
-        stats_artifact = envelope.stats_artifact
+        macro_request = envelope.macro_stress_request
+        macro_artifact = envelope.macro_stress_artifact
         output = envelope.orchestration_output or {}
 
         add(
@@ -577,56 +593,137 @@ class FullCircleWorkflow:
             word_filter.reason_vi if word_filter else "missing",
         )
 
-        if stats_request is None:
-            add("stats_request_json", False, "missing StatsRequest")
-            add("stats_source_real", False, "missing StatsRequest")
+        if macro_request is None:
+            add("macro_stress_request_json", False, "missing MacroStressRequest")
+            add("macro_stress_source_real", False, "missing MacroStressRequest")
+            add("macro_stress_panel_36_series", False, "missing panel")
         else:
+            panel = macro_request.panel
             add(
-                "stats_request_json",
-                stats_request.point_count >= settings.WORKFLOW_MIN_STATS_POINTS
-                and len(stats_request.dates) == len(stats_request.values),
-                f"{stats_request.point_count} observations, {stats_request.indicator_code}",
+                "macro_stress_request_json",
+                len(panel.dates) == len(panel.values)
+                and panel.n_dates >= 20
+                and panel.n_series >= 6,
+                f"{panel.n_dates} dates x {panel.n_series} series, "
+                f"{panel.missing_cells} missing cells",
             )
             add(
-                "stats_source_real",
-                stats_request.source == "world_bank"
-                and stats_request.source_url.startswith("https://"),
-                stats_request.source_url,
+                "macro_stress_source_real",
+                panel.source.startswith("world_bank")
+                and panel.source_url.startswith("https://"),
+                f"{panel.source} | {panel.source_url}",
+            )
+            core_codes = [
+                "GDP_YOY",
+                "CPI_YOY",
+                "FX_DEPREC",
+                "IB_RATE",
+                "FX_RESERVES",
+                "NPL_RATIO",
+                "CREDIT_GROWTH",
+                "CURRENT_ACCOUNT",
+                "FINANCIAL_ACCOUNT",
+            ]
+            add(
+                "macro_stress_panel_36_series",
+                panel.n_series == 36 and panel.series_codes[:9] == core_codes,
+                f"{panel.n_series} series; core={panel.series_codes[:9]}",
             )
 
-        if stats_artifact is None or stats_artifact.status != "OK" or not stats_artifact.response:
-            add("arima_artifact_ok", False, "missing or failed StatsArtifact")
-            add("arima_forecast_bounds", False, "missing forecast")
-            add("arima_request_matches", False, "missing request")
+        if macro_artifact is None or macro_artifact.status != "OK":
+            add("macro_stress_artifact_ok", False, "missing or failed v5.7 artifact")
+            add("macro_stress_artifact_signed", False, "missing artifact")
+            add("macro_stress_dimensions", False, "missing dimensions")
+            add("macro_stress_gatekeeper", False, "missing gatekeeper")
+            add("macro_stress_entropy_ess", False, "missing entropy weights")
+            add("macro_stress_request_matches", False, "missing request")
         else:
-            response = stats_artifact.response
-            forecast = list(response.get("forecast_data") or [])
-            bounds_ok = bool(forecast) and all(
-                float(item["lower_bound_95"])
-                <= float(item["predicted_mean"])
-                <= float(item["upper_bound_95"])
-                for item in forecast
+            dimensions = macro_artifact.dimensions or {}
+            gate = macro_artifact.gatekeeper or {}
+            entropy = gate.get("entropy_pooling") or {}
+            add(
+                "macro_stress_artifact_ok",
+                macro_artifact.status == "OK"
+                and bool(macro_artifact.artifact_sha256)
+                and macro_artifact.engine_version == "5.7.0",
+                f"request_id={macro_artifact.request_id}; "
+                f"sha256={macro_artifact.artifact_sha256[:16]}...",
+            )
+            signed_payload = macro_artifact.model_dump(mode="json")
+            signed_payload.pop("artifact_sha256", None)
+            add(
+                "macro_stress_artifact_signed",
+                sha256_value(signed_payload) == macro_artifact.artifact_sha256,
+                "RFC 8785 JCS + SHA-256 digest matches payload",
             )
             add(
-                "arima_artifact_ok",
-                stats_artifact.status == "OK",
-                f"order={response.get('diagnostics', {}).get('selected_order')}",
+                "macro_stress_dimensions",
+                dimensions.get("N_series") == 36
+                and dimensions.get("r_factors") == 5
+                and dimensions.get("companion_dim_tilde_r") == 25
+                and dimensions.get("regimes_K") == 2
+                and dimensions.get("haar_rotation_draws_MQ") == 64
+                and dimensions.get("sobol_particles_Np", 0) >= 8192
+                and dimensions.get("wasserstein_archetypes_Krep", 0) >= 50,
+                "N=36, r=5, companion=25, K=2, M_Q=64, "
+                f"Np={dimensions.get('sobol_particles_Np')}, "
+                f"Krep={dimensions.get('wasserstein_archetypes_Krep')}",
             )
             add(
-                "arima_forecast_bounds",
-                bounds_ok,
-                f"{len(forecast)} forecasts at {stats_artifact.forecast_frequency}",
+                "macro_stress_gatekeeper",
+                int(gate.get("joint_valid_particles") or 0) >= 50
+                and float(gate.get("acceptance_rate") or 0.0) > 0.0
+                and not bool(gate.get("fallback_used")),
+                f"joint_valid={gate.get('joint_valid_particles')}; "
+                f"acceptance={gate.get('acceptance_rate')}; "
+                f"fallback={gate.get('fallback_used')}",
+            )
+            add(
+                "macro_stress_entropy_ess",
+                float(entropy.get("kish_ess") or 0.0) >= 200.0,
+                f"Kish ESS={entropy.get('kish_ess')}; "
+                f"floor={entropy.get('kish_floor')}",
             )
             same_request = bool(
-                stats_request
-                and stats_artifact.request
-                and stats_artifact.request.model_dump(mode="json")
-                == stats_request.model_dump(mode="json")
+                macro_request
+                and macro_artifact.request_id == macro_request.request_id
+                and macro_artifact.request_sha256
+                == sha256_value(macro_request.model_dump(mode="json"))
             )
             add(
-                "arima_request_matches",
+                "macro_stress_request_matches",
                 same_request,
-                "StatsArtifact.request equals StatsRequest",
+                "artifact request_id and request_sha256 match MacroStressRequest",
+            )
+            passive = macro_artifact.branches.get("passive")
+            active = macro_artifact.branches.get("active")
+            if passive and active:
+                add(
+                    "macro_stress_active_mitigation",
+                    active.gdp_tail_loss_es_pct
+                    <= passive.gdp_tail_loss_es_pct + 0.05,
+                    f"passive ES={passive.gdp_tail_loss_es_pct:.4f}; "
+                    f"active ES={active.gdp_tail_loss_es_pct:.4f}",
+                )
+                add(
+                    "macro_stress_active_interbank",
+                    active.interbank_peak_p95_pct <= passive.interbank_peak_p95_pct,
+                    f"passive P95={passive.interbank_peak_p95_pct:.4f}; "
+                    f"active P95={active.interbank_peak_p95_pct:.4f}",
+                )
+            else:
+                add("macro_stress_active_mitigation", False, "missing branches")
+            micro = macro_artifact.micro_downscaling or {}
+            micro_output = Path(str(micro.get("output_arrow_uri") or ""))
+            add(
+                "macro_stress_micro_zero_copy",
+                bool(micro.get("enabled"))
+                and int(micro.get("n_firms") or 0) > 0
+                and bool((micro.get("zero_copy") or {}).get("raw_columns_zero_copy"))
+                and micro_output.exists()
+                and micro_output.stat().st_size > 0,
+                f"mode={micro.get('mode')}; firms={micro.get('n_firms')}; "
+                f"arrow={micro_output}",
             )
 
         # SQLite article row + canonical JSON payload.
@@ -728,16 +825,36 @@ class FullCircleWorkflow:
             f"surviving={surviving_count}",
         )
 
-        # ARIMA theory plugin invocation receipt per hypothesis.
+        # v5.7 theory plugin invocation receipt per hypothesis.
         invocations = (
-            list(arima_invocation_dir.glob("invocation_*.json"))
-            if arima_invocation_dir.exists()
+            list(macro_invocation_dir.glob("invocation_*.json"))
+            if macro_invocation_dir.exists()
             else []
         )
+        matching_invocations = 0
+        for invocation_path in invocations:
+            try:
+                receipt = json.loads(invocation_path.read_text(encoding="utf-8"))
+                if (
+                    receipt.get("plugin") == "macro_stress_v57"
+                    and macro_artifact is not None
+                    and receipt.get("artifact_sha256")
+                    == macro_artifact.artifact_sha256
+                ):
+                    matching_invocations += 1
+            except Exception:
+                continue
         add(
-            "arima_garch_plugin_invoked",
-            len(invocations) >= 1,
-            f"{len(invocations)} invocation receipts",
+            "macro_stress_v57_plugin_invoked",
+            matching_invocations >= 1,
+            f"{matching_invocations}/{len(invocations)} receipts match "
+            f"artifact_sha256={getattr(macro_artifact, 'artifact_sha256', '')[:16]}...",
+        )
+        add(
+            "macro_stress_v57_is_default_theory",
+            "macro_stress_v57" in hub.theory_algorithms
+            and "arima_garch" not in hub.theory_algorithms,
+            f"theory_algorithms={sorted(hub.theory_algorithms)}",
         )
 
         # Orchestrator output shape and viable sandbox proof.

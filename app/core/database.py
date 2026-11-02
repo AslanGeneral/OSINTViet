@@ -35,6 +35,10 @@ async def init_db() -> None:
     # Import inside the function so SQLModel metadata is populated even when
     # this module is imported before any API route or CLI command.
     from app.models.article import Article as _Article  # noqa: F401
+    from app.models.cache_log import (  # noqa: F401
+        CacheLogEntryRow as _CacheLogEntryRow,
+        CachePurgeAuditRow as _CachePurgeAuditRow,
+    )
     from app.models.workflow_run import WorkflowRun as _WorkflowRun  # noqa: F401
 
     async with engine.begin() as connection:

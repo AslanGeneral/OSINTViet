@@ -1,0 +1,60 @@
+{
+  "direction_epsilon": 0.0001,
+  "channel_direction_epsilons": {
+    "income_employment": 0.01,
+    "borrowing_cost": 0.005,
+    "savings_return": 0.0005,
+    "exchange_rate": 0.005
+  },
+  "channels": [
+    {
+      "id": "prices",
+      "name_vi": "Giá cả hàng hóa tiêu dùng",
+      "formula": "tornqvist_coli",
+      "enabled": true,
+      "description_vi": "Chi phí sinh hoạt qua QUAIDS, chỉ số Tornqvist-Theil, Fisher và biến thiên đền bù Hicks."
+    },
+    {
+      "id": "income_employment",
+      "name_vi": "Thu nhập và việc làm",
+      "formula": "bpp_income",
+      "enabled": true,
+      "description_vi": "Cú sốc thu nhập vĩnh viễn/tạm thời và mức bảo hiểm tiêu dùng từ mô hình BPP."
+    },
+    {
+      "id": "borrowing_cost",
+      "name_vi": "Chi phí vay và nghĩa vụ trả nợ",
+      "formula": "debt_service_rate",
+      "enabled": true,
+      "description_vi": "Lãi suất cho vay kịch bản căng thẳng tác động lên trả nợ hàng tháng."
+    },
+    {
+      "id": "savings_return",
+      "name_vi": "Lợi suất tiết kiệm",
+      "formula": "savings_real_return",
+      "enabled": true,
+      "description_vi": "Lãi suất thực và sức mua của tài sản lỏng."
+    },
+    {
+      "id": "exchange_rate",
+      "name_vi": "Rủi ro tỷ giá",
+      "formula": "fx_exposure",
+      "enabled": true,
+      "description_vi": "Tác động của mất giá nội tệ lên tài sản/nghĩa vụ ngoại tệ."
+    },
+    {
+      "id": "assets_liabilities",
+      "name_vi": "Tài sản và nghĩa vụ nợ",
+      "formula": "balance_sheet",
+      "enabled": true,
+      "description_vi": "Đệm thanh khoản, MDSR và phân loại HANK hai tài sản."
+    },
+    {
+      "id": "public_transfers",
+      "name_vi": "Chính sách công và an sinh",
+      "formula": "policy_support",
+      "enabled": true,
+      "description_vi": "Định hướng chính sách tài khóa/an sinh từ kịch bản vĩ mô."
+    }
+  ]
+}

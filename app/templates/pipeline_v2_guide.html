@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Hướng dẫn Pipeline V2 | OSINTViet{% endblock %}
+
+{% block content %}
+<section class="py-16 bg-gray-50 border-b border-gray-200">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <span class="editorial-kicker text-brand-accent">MACRO → MICRO</span>
+    <h1 class="font-serif text-3xl sm:text-5xl font-bold text-brand-dark mt-2 mb-6">
+      Hướng dẫn sử dụng Pipeline V2
+    </h1>
+    <p class="text-gray-700 leading-relaxed text-sm sm:text-base mb-8">
+      Pipeline V2 chạy một chuỗi thống nhất: nhận truy vấn và bối cảnh cá nhân,
+      phân loại vĩ mô/vi mô, lưu cache theo từng lần chạy, chạy engine kinh tế,
+      kiểm tra lại bằng embedding, purge cache đã kiểm chứng, rồi chuyển kết quả
+      sang orchestrator. Mọi số liệu hoặc được tính từ đầu vào của bạn, hoặc
+      được trích dẫn nguồn; nếu thiếu dữ liệu, kênh được ghi
+      <code>not_estimated</code>.
+    </p>
+
+    <div class="prose prose-slate max-w-none text-gray-700 leading-relaxed space-y-6 text-sm sm:text-base">
+      <h3 class="font-serif text-xl font-bold text-brand-dark">1. Chọn chế độ</h3>
+      <ul class="list-disc pl-6 space-y-2">
+        <li><strong>macro</strong>: chỉ chạy engine vĩ mô SPEC-MACRO-QUANT v5.7.</li>
+        <li><strong>micro</strong>: chỉ chạy engine hộ gia đình; có thể chạy độc lập khi có bối cảnh cá nhân.</li>
+        <li><strong>dual</strong>: chạy vĩ mô trước, rồi truyền kết quả đã ký sang vi mô. Nếu vĩ mô lỗi, vi mô không chạy.</li>
+        <li><strong>auto</strong>: dùng bộ phân loại đã hiệu chuẩn. Nếu tín hiệu là <code>mixed</code> hoặc độ tin cậy thấp, bạn phải chọn rõ chế độ, trừ khi thêm <code>--allow-dual</code>.</li>
+      </ul>
+
+      <h3 class="font-serif text-xl font-bold text-brand-dark">2. Bối cảnh cá nhân</h3>
+      <p>
+        Tạo một tệp JSON <code>PersonalContext</code>. Tất cả trường đều tùy chọn:
+      </p>
+      <pre class="bg-gray-900 text-gray-100 text-xs rounded p-4 overflow-x-auto"><code>{
+  "free_text": "Thu nhập 20 triệu, chi tiêu 15 triệu, tiết kiệm 60 triệu",
+  "region": "Hà Nội",
+  "occupation_sector": "giáo dục",
+  "household_notes": "2 người lớn, 1 trẻ em",
+  "assets_liabilities_notes": "Có khoản vay mua nhà",
+  "persist_opt_in": false
+}</code></pre>
+      <p>
+        Mặc định bối cảnh chỉ nằm trong bộ nhớ của lần chạy. Chỉ khi
+        <code>persist_opt_in=true</code> thì bối cảnh mới được lưu cùng cache log.
+        Không bao giờ đưa API key vào tệp này. Số liệu hộ tường minh có thể đặt
+        trong tệp <code>HouseholdProfile</code> riêng:
+      </p>
+      <pre class="bg-gray-900 text-gray-100 text-xs rounded p-4 overflow-x-auto"><code>{
+  "monthly_income_million_vnd": 22.0,
+  "monthly_expenditure_million_vnd": 18.0,
+  "budget_shares_w0": [0.45, 0.25, 0.12, 0.18],
+  "n_adults": 2,
+  "n_children": 1,
+  "liquid_assets_million_vnd": 18.0,
+  "illiquid_assets_million_vnd": 450.0,
+  "monthly_debt_service_million_vnd": 3.2,
+  "crra_rho": 2.5
+}</code></pre>
+      <p>
+        Thiếu trường nào thì khối/kênh tương ứng là <code>not_estimated</code>;
+        hệ thống không tự bịa số. Tỷ lệ
+        <code>carroll_toche_target_buffer_ratio</code> là tỷ lệ market resources
+        trên permanent income, không phải số tháng.
+      </p>
+
+      <h3 class="font-serif text-xl font-bold text-brand-dark">3. BYOK – dùng API key của bạn</h3>
+      <p>
+        Pipeline không nhận key qua tham số dòng lệnh và không ghi key vào cache,
+        log, lỗi hay cơ sở dữ liệu. Chọn một trong hai cách:
+      </p>
+      <ul class="list-disc pl-6 space-y-2">
+        <li>Đặt biến môi trường <code>OSINT_BYOK_API_KEY</code> (cùng
+          <code>OSINT_BYOK_BASE_URL</code>, <code>OSINT_BYOK_MODEL</code> nếu cần).</li>
+        <li>Chạy với <code>--byok-stdin</code> rồi truyền key qua stdin; key chỉ
+          nằm trong bộ nhớ tiến trình.</li>
+      </ul>
+      <p>
+        Nếu không có key, pipeline dùng router hiện có của repository (Ollama cục
+        bộ hoặc key pool đã cấu hình).
+      </p>
+
+      <h3 class="font-serif text-xl font-bold text-brand-dark">4. Dòng lệnh</h3>
+      <pre class="bg-gray-900 text-gray-100 text-xs rounded p-4 overflow-x-auto"><code># Chạy đầy đủ, xuất JSON
+.venv/bin/python run_full_workflow.py --mode dual \
+  --query "Lạm phát và lãi suất ảnh hưởng hộ gia đình tôi thế nào?" \
+  --context-file context.json --household-file household.json
+
+# Chạy thử, không purge, không ghi DB/artifact, không gọi orchestrator
+.venv/bin/python run_full_workflow.py --mode micro \
+  --query "Giá thực phẩm tăng ảnh hưởng chi tiêu ra sao?" \
+  --context-file context.json --dry-run --skip-orchestrator
+
+# Kiểm tra và xóa bản ghi bị cách ly
+.venv/bin/python run_full_workflow.py quarantine-list
+.venv/bin/python run_full_workflow.py quarantine-delete --run-id run_... --dry-run
+.venv/bin/python run_full_workflow.py quarantine-delete --run-id run_... --yes</code></pre>
+
+      <h3 class="font-serif text-xl font-bold text-brand-dark">5. Dữ liệu được lưu và xóa</h3>
+      <p>
+        Cache log đi qua các trạng thái <code>written</code> →
+        <code>consumed_by_engine</code> → <code>revalidating</code> →
+        <code>verified</code> → <code>purged</code>. Chỉ bản ghi
+        <code>verified</code> mới được purge tự động, theo từng
+        <code>run_id</code>, nguyên tử và lặp lại an toàn. Bản ghi
+        <code>quarantined</code> không bao giờ bị xóa tự động; dùng lệnh riêng ở
+        trên. Audit purge chỉ chứa run_id, số lượng, thời điểm và kết quả, không
+        chứa nội dung.
+      </p>
+
+      <h3 class="font-serif text-xl font-bold text-brand-dark">6. Giới hạn cần biết</h3>
+      <ul class="list-disc pl-6 space-y-2">
+        <li>Các hệ số QUAIDS/BPP/EGM/HANK trong <code>config/micro_household.json</code>
+          là tham số mô hình minh họa do đặc tả cung cấp; cần hiệu chuẩn lại bằng
+          VHLSS/VES trước khi dùng sản xuất.</li>
+        <li>Khi artifact v5.7 không công bố <code>optimal_policy_u</code>, pipeline
+          dùng vector 0 và ghi rõ giả định; không tạo số liệu chính sách.</li>
+        <li>Bài báo live chỉ được fetch khi bạn thêm <code>--live</code>; mặc định
+          pipeline dùng truy vấn và panel World Bank đã cache.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+{% endblock %}

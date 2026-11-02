@@ -1,0 +1,192 @@
+{
+  "version": "1.0",
+  "artifact_dir": "/tmp/osint_pipeline_v2",
+  "calibration_path": "config/classifier_calibration.json",
+  "classifier": {
+    "lexicon_weight": 0.55,
+    "embedding_weight": 0.45,
+    "mixed_margin": 0.08,
+    "lexicon_saturation": 5,
+    "max_text_chars": 6000,
+    "llm_assist_enabled": false,
+    "macro_lexicon": [
+      "lạm phát",
+      "gdp",
+      "tăng trưởng kinh tế",
+      "lãi suất",
+      "tỷ giá",
+      "chính sách tiền tệ",
+      "chính sách tài khóa",
+      "ngân hàng nhà nước",
+      "cán cân thương mại",
+      "đầu tư công",
+      "thất nghiệp",
+      "xuất khẩu",
+      "nhập khẩu",
+      "nợ công",
+      "tín dụng",
+      "cpi",
+      "vĩ mô",
+      "ngân sách nhà nước",
+      "thuế",
+      "thị trường chứng khoán",
+      "fed",
+      "gói kích thích",
+      "phá giá",
+      "dự trữ ngoại hối",
+      "lãi suất điều hành",
+      "tổng sản phẩm quốc nội",
+      "kim ngạch",
+      "đầu tư nước ngoài",
+      "fdi",
+      "ổn định kinh tế vĩ mô"
+    ],
+    "micro_lexicon": [
+      "hộ gia đình",
+      "gia đình tôi",
+      "thu nhập",
+      "chi tiêu",
+      "tiết kiệm",
+      "khoản vay",
+      "trả nợ",
+      "ngân sách gia đình",
+      "giá thực phẩm",
+      "tiền thuê nhà",
+      "con cái",
+      "học phí",
+      "bảo hiểm",
+      "việc làm của tôi",
+      "lương",
+      "chi phí sinh hoạt",
+      "tài sản",
+      "nợ vay",
+      "khả năng chi trả",
+      "an sinh",
+      "hưu trí",
+      "đầu tư cá nhân",
+      "danh mục đầu tư",
+      "rủi ro tài chính cá nhân",
+      "thu nhập khả dụng",
+      "mức sống",
+      "người lao động",
+      "hộ nghèo",
+      "vay mua nhà",
+      "người lớn",
+      "trẻ em",
+      "lương hưu",
+      "quỹ khẩn cấp",
+      "chi phí y tế",
+      "giá điện",
+      "giá xăng",
+      "bữa ăn",
+      "tiền mặt",
+      "tài khoản tiết kiệm"
+    ],
+    "macro_prototypes": [
+      "Phân tích tăng trưởng GDP, lạm phát CPI, lãi suất điều hành, tỷ giá và cán cân thương mại của nền kinh tế.",
+      "Chính sách tiền tệ và tài khóa tác động đến tín dụng, đầu tư công, nợ công và ổn định kinh tế vĩ mô.",
+      "Dự báo vĩ mô về xuất khẩu, nhập khẩu, dự trữ ngoại hối, thất nghiệp và thị trường tài chính."
+    ],
+    "micro_prototypes": [
+      "Một hộ gia đình có thu nhập, chi tiêu, tiết kiệm, khoản vay và trả nợ hàng tháng cần biết chi phí sinh hoạt thay đổi ra sao.",
+      "Tác động lên ngân sách gia đình, giá thực phẩm, tiền thuê nhà, học phí, bảo hiểm và khả năng chi trả của tôi.",
+      "Danh mục tài sản cá nhân, quỹ khẩn cấp, mức sống và rủi ro tài chính của người lao động hoặc hộ nghèo."
+    ],
+    "topic_tags": {
+      "lạm phát": "inflation",
+      "giá": "prices",
+      "lãi suất": "interest_rate",
+      "tỷ giá": "exchange_rate",
+      "gdp": "growth",
+      "tăng trưởng": "growth",
+      "thu nhập": "income",
+      "chi tiêu": "expenditure",
+      "tiết kiệm": "savings",
+      "nợ": "debt",
+      "việc làm": "employment",
+      "thất nghiệp": "employment",
+      "thuế": "tax",
+      "bảo hiểm": "insurance",
+      "học phí": "education",
+      "y tế": "health",
+      "nhà ở": "housing",
+      "năng lượng": "energy",
+      "xăng": "energy",
+      "điện": "energy"
+    }
+  },
+  "cache_log": {
+    "purge_enabled": true,
+    "dry_run_default": false,
+    "store_embedding_vectors": true,
+    "max_content_chars": 20000
+  },
+  "revalidation": {
+    "grounding_similarity_threshold": 0.34,
+    "consistency_similarity_threshold": 0.28,
+    "lexical_overlap_threshold": 0.18,
+    "min_claim_support_ratio": 0.8,
+    "require_external_support": true,
+    "embedding_batch_size": 16,
+    "append_failure_lessons": false,
+    "_calibration_notes": "Initial operating points chosen after reviewing claim/evidence cosine similarity on the project's Vietnamese macro/micro sample set; re-calibrate on audited production pairs before tightening. Lexical fallback threshold uses token-overlap Jaccard."
+  },
+  "input_fetch": {
+    "require_live_article": false,
+    "analyze_article": true,
+    "max_article_chars": 6000,
+    "fetch_attempts": 2,
+    "query_breakdown_enabled": true,
+    "query_breakdown_llm_enabled": true
+  },
+  "query_breakdown": {
+    "indicator_terms": {
+      "GDP_YOY": ["gdp", "tăng trưởng"],
+      "CPI_YOY": ["lạm phát", "cpi", "giá tiêu dùng"],
+      "FX_DEPREC": ["tỷ giá", "mất giá", "phá giá"],
+      "IB_RATE": ["lãi suất", "lãi vay"],
+      "UNEMPLOYMENT": ["thất nghiệp", "việc làm"],
+      "CREDIT_GROWTH": ["tín dụng", "cho vay"],
+      "NPL_RATIO": ["nợ xấu", "npl"],
+      "FX_RESERVES": ["dự trữ ngoại hối"]
+    },
+    "personal_dimension_terms": {
+      "income": ["thu nhập", "lương", "income"],
+      "expenditure": ["chi tiêu", "chi phí", "expense", "spending"],
+      "savings": ["tiết kiệm", "tiền mặt", "savings", "liquid"],
+      "debt": ["nợ", "khoản vay", "debt", "loan"],
+      "household_size": ["người lớn", "trẻ em", "con", "adults", "children"],
+      "housing": ["nhà ở", "tiền thuê", "housing", "rent"],
+      "energy": ["xăng", "điện", "năng lượng", "energy", "fuel"],
+      "health": ["y tế", "bảo hiểm", "health", "insurance"],
+      "education": ["học phí", "trường học", "education", "tuition"]
+    },
+    "search_query_templates": [
+      "{query}",
+      "{query} Việt Nam số liệu mới nhất",
+      "{query} tác động hộ gia đình"
+    ]
+  },
+  "byok": {
+    "api_key_env": "OSINT_BYOK_API_KEY",
+    "base_url_env": "OSINT_BYOK_BASE_URL",
+    "model_env": "OSINT_BYOK_MODEL",
+    "default_base_url": "https://api.openai.com/v1",
+    "default_model": "gpt-4o-mini",
+    "timeout_seconds": 180.0
+  },
+  "orchestrator": {
+    "enabled": true,
+    "disable_raw_ingestors": true,
+    "domain_tag": "macro_econ",
+    "timeout_seconds": 2700.0
+  },
+  "macro": {
+    "artifact_subdir": "macro",
+    "country_code": "VNM"
+  },
+  "micro": {
+    "household_config_path": "config/micro_household.json",
+    "channels_path": "config/micro_channels.json"
+  }
+}

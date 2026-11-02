@@ -45,7 +45,20 @@ class LLMRoutingEngine:
             raw_json = await self._call_cloud_api(system_instruction, prompt)
 
         # 4. Parse & Validate
-        parsed_result = response_model.model_validate_json(raw_json)
+        cleaned = raw_json.strip()
+        if cleaned.startswith("```"):
+            import re
+            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+            cleaned = re.sub(r"\s*```$", "", cleaned)
+        try:
+            parsed_result = response_model.model_validate_json(cleaned)
+        except Exception:
+            import re
+            m = re.search(r"\{.*\}", cleaned, re.DOTALL)
+            if m:
+                parsed_result = response_model.model_validate_json(m.group(0))
+            else:
+                raise
 
         # 5. Lưu Cache
         if settings.ENABLE_LLM_CACHE:

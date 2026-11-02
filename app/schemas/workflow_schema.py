@@ -1,9 +1,11 @@
 """JSON contracts for the full-circle workflow.
 
 Every stage of the workflow exchanges a validated Pydantic/JSON object:
-article -> analysis -> word filter -> stats request -> ARIMA-GARCH artifact ->
-orchestrator output -> recheck.  The SQLite ledger stores the same envelope as
-JSON so a run can be audited without trusting free-form LLM prose.
+article -> analysis -> word filter -> World Bank panel -> SPEC-MACRO-QUANT v5.7
+artifact -> orchestrator output -> recheck.  The SQLite ledger stores the same
+envelope as JSON so a run can be audited without trusting free-form LLM prose.
+The single-series StatsRequest/StatsArtifact pair is retained only for reading
+historical envelopes and explicit legacy compatibility runs.
 """
 
 from __future__ import annotations
@@ -13,6 +15,11 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.math_engine.macro_stress_v57.contracts import (
+    MacroStressArtifact,
+    MacroStressRequest,
+)
 
 
 def utc_now_iso() -> str:
@@ -199,8 +206,13 @@ class WorkflowEnvelope(BaseModel):
     article: Optional[FetchedArticle] = None
     analysis: Optional[ArticleAnalysis] = None
     word_filter: Optional[WordFilterResult] = None
+    # Legacy single-series ARIMA stage.  Kept only for reading historical
+    # envelopes and for an explicitly enabled compatibility run.
     stats_request: Optional[StatsRequest] = None
     stats_artifact: Optional[StatsArtifact] = None
+    # SPEC-MACRO-QUANT v5.7 is the default workflow stage.
+    macro_stress_request: Optional[MacroStressRequest] = None
+    macro_stress_artifact: Optional[MacroStressArtifact] = None
     orchestration_output: Optional[Dict[str, Any]] = None
     orchestration_meta: Dict[str, Any] = Field(default_factory=dict)
     llm_calls: List[Dict[str, Any]] = Field(default_factory=list)
@@ -255,6 +267,8 @@ __all__ = [
     "FetchedArticle",
     "IndicatorMention",
     "JudgeVote",
+    "MacroStressArtifact",
+    "MacroStressRequest",
     "PracticalCritique",
     "RecheckCheck",
     "RecheckReport",

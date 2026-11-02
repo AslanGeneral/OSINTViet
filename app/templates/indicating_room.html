@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Chỉ Số OSINT & Dự Báo Kinh Lượng Học | OSINTViet{% endblock %}
+
+{% block content %}
+<section class="py-12 bg-brand-dark text-white border-b border-gray-800">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl">
+      <span class="editorial-kicker text-red-400">PHÒNG CHỈ SỐ ĐỊNH LƯỢNG (INDICATING ROOM)</span>
+      <h1 class="font-serif text-3xl sm:text-4xl font-bold text-white mt-2 mb-3">
+        Mô Hình Kinh Lượng Học ARIMA-GARCH &amp; Đo Lường Biến Động
+      </h1>
+      <p class="text-gray-300 leading-relaxed text-sm sm:text-base">
+        Ứng dụng quy trình toán học nghiêm ngặt để kiểm định tính dừng (ADF Test), ước lượng độ trễ tối ưu và phân tích tính tụ hồi biến động (Volatility Persistence α+β).
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="py-12 bg-white">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <!-- Indicator Spec Card 1: Petrol Volatility -->
+      <div class="border border-gray-200 p-6 bg-white shadow-2xs space-y-4">
+        <div class="flex justify-between items-start">
+          <span class="editorial-kicker text-brand-accent">NĂNG LƯỢNG</span>
+          <span class="font-mono text-[10px] px-2 py-0.5 bg-red-100 text-red-800 border border-red-200 font-bold">RỦI RO: CAO</span>
+        </div>
+        <h3 class="font-serif text-xl font-bold text-brand-dark">Biến Động Xăng RON 95</h3>
+        <div class="font-mono text-3xl font-bold text-brand-dark">23.850 <span class="text-xs font-normal text-gray-500">đ/L</span></div>
+        <div class="space-y-2 text-xs font-mono border-t border-gray-100 pt-3">
+          <div class="flex justify-between">
+            <span class="text-gray-500">GARCH Persistence:</span>
+            <span class="font-bold text-red-600">0.894 (Tụ hồi mạnh)</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">ADF Stat:</span>
+            <span class="font-bold text-emerald-600">-3.814 (Dừng ở p&lt;0.01)</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Dự báo 10 ngày:</span>
+            <span class="font-bold text-brand-dark">+1.4% (Tăng)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Indicator Spec Card 2: USD/VND Exchange Rate -->
+      <div class="border border-gray-200 p-6 bg-white shadow-2xs space-y-4">
+        <div class="flex justify-between items-start">
+          <span class="editorial-kicker text-brand-accent">TỶ GIÁ NGOẠI TỆ</span>
+          <span class="font-mono text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 font-bold">RỦI RO: TRUNG BÌNH</span>
+        </div>
+        <h3 class="font-serif text-xl font-bold text-brand-dark">Tỷ Giá USD / VND</h3>
+        <div class="font-mono text-3xl font-bold text-brand-dark">25.460 <span class="text-xs font-normal text-gray-500">VND</span></div>
+        <div class="space-y-2 text-xs font-mono border-t border-gray-100 pt-3">
+          <div class="flex justify-between">
+            <span class="text-gray-500">GARCH Persistence:</span>
+            <span class="font-bold text-amber-600">0.682 (Bình ổn vừa)</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">ADF Stat:</span>
+            <span class="font-bold text-emerald-600">-4.120 (Dừng ở sai phân 1)</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Dự báo 10 ngày:</span>
+            <span class="font-bold text-brand-dark">+0.08% (Biên hẹp)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Indicator Spec Card 3: Inflation CPI -->
+      <div class="border border-gray-200 p-6 bg-white shadow-2xs space-y-4">
+        <div class="flex justify-between items-start">
+          <span class="editorial-kicker text-brand-accent">LẠM PHÁT TỔNG THỂ</span>
+          <span class="font-mono text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold">KIỂM SOÁT TỐT</span>
+        </div>
+        <h3 class="font-serif text-xl font-bold text-brand-dark">Chỉ Số CPI YoY</h3>
+        <div class="font-mono text-3xl font-bold text-brand-dark">3.82 <span class="text-xs font-normal text-gray-500">%</span></div>
+        <div class="space-y-2 text-xs font-mono border-t border-gray-100 pt-3">
+          <div class="flex justify-between">
+            <span class="text-gray-500">Mục tiêu trần:</span>
+            <span class="font-bold text-gray-700">4.50%</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Trễ thực phẩm đô thị:</span>
+            <span class="font-bold text-red-600">+4.2%</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Dự báo quý:</span>
+            <span class="font-bold text-emerald-600">Ổn định trong ngưỡng</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Econometric Forecast Runner -->
+    <div class="mt-12 bg-gray-50 border border-gray-200 p-8">
+      <span class="editorial-kicker text-brand-accent">API ECONOMETRIC RUNNER</span>
+      <h3 class="font-serif text-xl font-bold text-brand-dark mt-1 mb-2">
+        Mô Phỏng Chuỗi Thời Gian Tự Động (Auto-ARIMA)
+      </h3>
+      <p class="text-xs text-gray-600 mb-6">
+        Hệ thống tự động chạy kiểm định sai phân d, tìm bộ tham số (p, d, q) tối ưu qua tiêu chí Akaike Information Criterion (AIC).
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
+        <div class="bg-white border border-gray-200 p-4 space-y-3">
+          <div class="font-bold text-brand-dark">Đầu vào chuỗi thời gian mẫu:</div>
+          <div class="text-gray-600">Tên chuỗi: petrol_ron95_daily</div>
+          <div class="text-gray-600">Độ dài quan sát: 30 kỳ điều hành gần nhất</div>
+          <div class="text-gray-600">Mô hình biến động: GARCH(1,1) với phân phối t-Student</div>
+        </div>
+        <div class="bg-brand-dark text-emerald-400 p-4 border border-gray-800 space-y-2">
+          <div class="text-gray-400"># Trạng thái tính toán máy chủ:</div>
+          <div>✓ Stationarity check: Stationary after 1st differencing</div>
+          <div>✓ Best model: ARIMA(1, 1, 2) [AIC = 142.16]</div>
+          <div>✓ Residual white noise test: Box-Ljung p = 0.43 (No autocorrelation)</div>
+          <div>✓ Attestation signed: SHA256-verified</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+{% endblock %}

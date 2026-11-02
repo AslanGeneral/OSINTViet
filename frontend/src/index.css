@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans text-brand-dark bg-white;
+  }
+  
+  h1, h2, h3, h4, .font-editorial {
+    @apply font-serif;
+  }
+}
+
+/* Custom Scrollbar for code and sidebars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+/* Status indicator pulse animation */
+@keyframes greenPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.15); }
+}
+
+.status-pulse-green {
+  animation: greenPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

@@ -76,3 +76,4 @@ yarl==1.25.1
 # Bổ sung cho Universal Orchestrator v2.0 [DT §9/§10/§11, hàng 17]
 chromadb
 problog
+jinja2
