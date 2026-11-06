@@ -8,12 +8,15 @@ Một website OSINT thiên về kinh tế, hướng tới cộng đồng và dà
 tiếng Việt. Mục tiêu là đưa các khái niệm kinh tế vĩ mô vào đời sống thường
 ngày, vì lợi ích chung.
 
+**Website:** [In future waitlist...]
+
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![SQLite + SQLModel](https://img.shields.io/badge/SQLite-SQLModel-003B57?logo=sqlite&logoColor=white)](https://sqlmodel.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [👋 Dành cho người dùng](#nguoi-dung) ·
+[🇬🇧 English](#english) ·
 [🚀 Bắt đầu nhanh](#bat-dau-nhanh) ·
 [🧭 Chọn chế độ](#chon-che-do) ·
 [🏗️ Kiến trúc](#kien-truc) ·
@@ -28,9 +31,12 @@ ngày, vì lợi ích chung.
 ---
 
 > [!NOTE]
-> Toàn bộ nội dung dành cho người dùng cuối là tiếng Việt. Mã nguồn, comment và
-> báo cáo kỹ thuật giữ tiếng Anh. Hướng dẫn đầy đủ nằm tại
-> [`docs/HUONG_DAN_PIPELINE_V2.md`](docs/HUONG_DAN_PIPELINE_V2.md).
+> Toàn bộ nội dung dành cho người dùng cuối là tiếng Việt, trừ phần
+> [English overview](#english). Mã nguồn, comment và báo cáo kỹ thuật giữ tiếng
+> Anh. Hướng dẫn vận hành nằm tại
+> [`docs/HUONG_DAN_PIPELINE_V2.md`](docs/HUONG_DAN_PIPELINE_V2.md); tài liệu kỹ
+> thuật đầy đủ bằng tiếng Anh nằm tại
+> [`docs/TECHNICAL_REFERENCE.md`](docs/TECHNICAL_REFERENCE.md).
 
 > [!WARNING]
 > **Không phải lời khuyên đầu tư hoặc tư vấn tài chính.** Kết quả chỉ mang tính
@@ -44,6 +50,7 @@ ngày, vì lợi ích chung.
 
 - [Dành cho người dùng thường](#nguoi-dung)
 - [Tuyên bố miễn trừ trách nhiệm](#mien-tru)
+- [English overview](#english)
 - [Tổng quan kỹ thuật](#tong-quan)
 - [Chọn chế độ phù hợp](#chon-che-do)
 - [Bắt đầu nhanh](#bat-dau-nhanh)
@@ -149,6 +156,71 @@ khi kết quả được tạo. Bạn tự chịu trách nhiệm kiểm chứng 
 cam kết về tính chính xác, đầy đủ hoặc kịp thời, và không chịu trách nhiệm cho
 thiệt hại phát sinh từ việc dùng kết quả trái với mục đích tham khảo.
 
+<a id="english" name="english"></a>
+
+## English overview
+
+OSINTViet is an open-source economic analysis pipeline built for Vietnamese
+readers. It starts with a question about the economy. If you also provide a
+household's numbers — income, spending, assets, debt and size — it connects the
+national picture to that household. A run can stop at the macro level, work only
+on the household, or carry the macro result into the household model.
+
+The system is built around one rule: a number must be calculated from your
+inputs, taken from a cited public source, or left as `not_estimated`. It does
+not fill a missing value with a plausible guess.
+
+### What happens in a run
+
+1. **Input.** The pipeline reads your question and, optionally, a household
+   file with income, spending, assets, debt and household size.
+2. **Classification.** A deterministic lexicon and embedding prototypes label
+   the request as `macro`, `micro` or `mixed`. You can choose the mode yourself;
+   your choice always wins.
+3. **Cache.** A run-scoped cache log stores the processed material. Personal
+   context stays in memory unless you set `persist_opt_in=true`.
+4. **Engines.** The macro engine (SPEC-MACRO-QUANT v5.7) builds a 36-series
+   Vietnam panel, estimates factors and regimes, searches for a plausible
+   adverse shock, and simulates three policy branches. The household engine
+   uses QUAIDS demand, BPP income shocks, a buffer-stock model and FGT/VEP
+   poverty measures. In `dual` mode it reads the macro artifact through
+   a read-only bridge.
+5. **Re-validation.** Grounding, consistency, completeness and mode integrity
+   must all pass. A failed check quarantines the run's cache entries and fails
+   the run; the pipeline does not repair it with invented data.
+6. **Output.** The result is JSON with sources, formulas, assumptions, warnings
+   and the validation report. Logs go to stderr; JSON goes to stdout.
+
+### Modes
+
+| Mode | Use it when | What runs |
+| --- | --- | --- |
+| `macro` | You want the national picture only | Macro engine; no household result |
+| `micro` | You have household numbers and want their exposure | Household engine; no macro result |
+| `dual` | You want the chain from the economy to the household | Macro first, then household with the macro artifact |
+| `auto` | You are not sure | The classifier recommends a mode; `--allow-dual` resolves a mixed signal |
+
+### What the system will not do
+
+- It will not turn a missing input into a number. A channel with no data is
+  reported as `not_estimated`, which means "not enough information", not zero.
+- It will not present a model output as a forecast or as investment, legal, tax
+  or financial advice.
+- It will not store your personal context by default. Cloud LLM and Cohere calls
+  can receive processed text when those services are enabled; local Ollama does
+  not.
+- It will not invent a missing macro series. Missing cells are imputed and
+  recorded; a series with no observations, or a panel that cannot supply the
+  core contract, stops the run with a structured error.
+
+### Documentation
+
+- [Technical reference](docs/TECHNICAL_REFERENCE.md) - the full English
+  description of the architecture, mathematics, economic models, configuration,
+  appendix and glossary.
+- [Vietnamese operating guide](docs/HUONG_DAN_PIPELINE_V2.md)
+- [Pipeline V2 completion report](docs/PIPELINE_V2_COMPLETION_REPORT.md)
+
 <a id="tong-quan" name="tong-quan"></a>
 
 ## Tổng quan kỹ thuật
@@ -179,7 +251,7 @@ gia đình chạy độc lập hoặc nhận artifact v5.7 qua bridge chỉ đ�
 | --- | --- | --- |
 | `macro` | Chỉ cần bức tranh kinh tế vĩ mô | Chạy engine v5.7; không trả `MicroResult` |
 | `micro` | Muốn biết tác động lên hộ gia đình | Chạy engine hộ gia đình; không cần macro |
-| `dual` | Muốn cả vĩ mô và vi mô | Chạy macro trước, truyền payload đã ký sang micro |
+| `dual` | Muốn cả vĩ mô và vi mô | Chạy macro trước, truyền artifact v5.7 qua bridge chỉ đọc sang micro |
 | `auto` | Chưa chắc nên chọn gì | Dùng classifier gợi ý; mode do bạn chọn luôn thắng |
 
 > [!TIP]
@@ -361,7 +433,7 @@ trong mọi lần chạy.
 
 | Dịch vụ/công cụ | Khi nào dùng | Dữ liệu có thể đi ra ngoài |
 | --- | --- | --- |
-| **World Bank API** | Lấy panel 36 chỉ số kinh tế | Mã quốc gia/chỉ số; không cần hồ sơ hộ |
+| **World Bank API** | Lấy panel 36 cột từ 35 chỉ số kinh tế | Mã quốc gia/chỉ số; không cần hồ sơ hộ |
 | **Cohere Embed v5 Pro** | Khi bật embedding Cohere | Văn bản cần tạo embedding |
 | **LLM đám mây (BYOK hoặc key pool)** | Khi cấu hình nhà cung cấp cloud | Truy vấn và bối cảnh có thể nằm trong prompt |
 | **Ollama cục bộ** | Mặc định khi không dùng cloud | Không gửi ra ngoài nếu chạy trên máy |
@@ -447,15 +519,18 @@ Bạn có thể dùng API key của riêng mình (**BYOK**). Key chỉ đọc t�
 trình**.
 
 ```bash
-export OSINT_BYOK_API_KEY="..."                         # không ghi vào tệp
-export OSINT_BYOK_BASE_URL="https://api.openai.com/v1"  # tùy chọn
-export OSINT_BYOK_MODEL="gpt-4o-mini"                   # tùy chọn
+export OSINT_BYOK_API_KEY="..."                         # không commit vào git
+export OSINT_BYOK_BASE_URL="http://127.0.0.1:3001/v1"   # FreeLLMAPI cục bộ
+export OSINT_BYOK_MODEL="gemini-3.8-flash"              # tùy chọn
 
 # Hoặc đọc đúng một dòng từ stdin, không echo:
 printf '%s\n' "$OSINT_BYOK_API_KEY" | \
   .venv/bin/python run_full_workflow.py --mode macro \
   --query "Lạm phát CPI" --byok-stdin
 ```
+
+Khi chạy server, có thể đặt các biến này trong `.env` (đã nằm trong
+`.gitignore`) hoặc trong môi trường của service. Không commit `.env` lên git.
 
 > [!CAUTION]
 > Key **không bao giờ** đi vào cache, audit, log, lỗi hay database. Nếu không có
@@ -704,11 +779,11 @@ dry-run, lỗi có cấu trúc và một lượt S6 đầy đủ):
   resources trên permanent income (dimensionless, `m_check^e`), **không phải số
   tháng**. Muốn đổi sang tháng phải dùng thêm thu nhập/chi tiêu của hộ và ghi rõ
   công thức.
-- **Classifier**: threshold/margin được fit trên mẫu tổng hợp; hãy hiệu chuẩn
+- **Classifier**: threshold/margin được fit trên 46 mẫu gán nhãn; hãy hiệu chuẩn
   lại trên cặp dữ liệu đã kiểm toán trước khi siết ngưỡng.
-- **Chi phí S6**: chạy đầy đủ với Ollama cục bộ mất khoảng 20 phút; S6 là tám
-  lời gọi LLM tuần tự. Timeout hiện là 2700 giây trong
-  `config/pipeline_v2.json`.
+- **Chi phí S6**: chạy đầy đủ với Ollama cục bộ mất khoảng 20 phút; S6 là chuỗi
+  nhiều lượt gọi LLM cục bộ (khoảng 25-30 lượt trong một lần chạy thường).
+  Timeout hiện là 2700 giây trong `config/pipeline_v2.json`.
 - **Ngữ nghĩa lỗi S6**: exception trong S6 được trả về `ok_with_warnings` với
   `orchestration: null`. Nếu cần S6 thành công như điều kiện cứng, phải quyết
   định chính sách rõ ràng.
@@ -889,8 +964,9 @@ khi xóa thật.
 <details>
 <summary><strong>12. Vì sao chạy lâu hoặc không có kết quả?</strong></summary>
 
-Bước tổng hợp cuối (S6) với Ollama cục bộ mất khoảng 20 phút vì chạy tám lời
-gọi LLM tuần tự. Nếu quá thời gian, kết quả có thể ở trạng thái “hoàn tất có
+Bước tổng hợp cuối (S6) với Ollama cục bộ mất khoảng 20 phút vì chạy nhiều
+lượt gọi LLM qua các stage (khoảng 25-30 lượt trong một lần chạy thường). Nếu
+quá thời gian, kết quả có thể ở trạng thái “hoàn tất có
 cảnh báo” (`ok_with_warnings`) và phần tổng hợp cuối để trống
 (`orchestration: null`); các bước phân tích và kiểm tra trước đó vẫn có thể đã
 hoàn tất.
@@ -916,6 +992,7 @@ bộ. Bạn cần Internet khi muốn lấy dữ liệu World Bank mới, tải 
 
 | Tài liệu | Nội dung |
 | --- | --- |
+| [`docs/TECHNICAL_REFERENCE.md`](docs/TECHNICAL_REFERENCE.md) | Tài liệu kỹ thuật đầy đủ bằng tiếng Anh: kiến trúc, công thức, mô hình kinh tế, phụ lục và thuật ngữ |
 | [`docs/HUONG_DAN_PIPELINE_V2.md`](docs/HUONG_DAN_PIPELINE_V2.md) | Hướng dẫn vận hành Pipeline V2 bằng tiếng Việt |
 | [`docs/PIPELINE_V2_COMPLETION_REPORT.md`](docs/PIPELINE_V2_COMPLETION_REPORT.md) | Báo cáo kỹ thuật, kiểm chứng và stress test (tiếng Anh) |
 | `http://127.0.0.1:8000/pipeline-v2` | Trang hướng dẫn trên website |

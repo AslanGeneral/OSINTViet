@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -142,6 +143,21 @@ def read_key_from_stdin(stream: Any = None) -> str:
     return key
 
 
+def _load_env_file() -> None:
+    """Load the repository ``.env`` without overriding real environment vars.
+
+    ``pydantic-settings`` already reads ``.env`` for the application settings,
+    but the BYOK key is fetched from ``os.environ`` so that it never enters a
+    config model.  Loading the same file here keeps CLI and server behavior
+    consistent.  Explicit shell variables and ``--byok-stdin`` still win.
+    """
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
+
+
 def _resolve_key(
     cfg: BYOKConfig,
     *,
@@ -150,6 +166,7 @@ def _resolve_key(
 ) -> Optional[str]:
     if use_stdin:
         return read_key_from_stdin(stdin_stream)
+    _load_env_file()
     key = os.environ.get(cfg.api_key_env, "").strip()
     return key or None
 

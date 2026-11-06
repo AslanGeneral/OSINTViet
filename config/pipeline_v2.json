@@ -171,8 +171,8 @@
     "api_key_env": "OSINT_BYOK_API_KEY",
     "base_url_env": "OSINT_BYOK_BASE_URL",
     "model_env": "OSINT_BYOK_MODEL",
-    "default_base_url": "https://api.openai.com/v1",
-    "default_model": "gpt-4o-mini",
+    "default_base_url": "http://127.0.0.1:3001/v1",
+    "default_model": "gemini-3.8-flash",
     "timeout_seconds": 180.0
   },
   "orchestrator": {
