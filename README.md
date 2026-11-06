@@ -43,6 +43,28 @@ ngày, vì lợi ích chung.
 > tham khảo và giáo dục. Đọc [Tuyên bố miễn trừ trách nhiệm](#mien-tru) trước
 > khi dùng bất kỳ con số nào cho quyết định thật.
 
+> [!CAUTION]
+> **Truy cập sớm / Thử nghiệm beta — Early access / Beta.**
+>
+> Sản phẩm này vẫn đang trong giai đoạn truy cập sớm/thử nghiệm beta. Giao diện
+> website sẽ ra mắt trong thời gian tới, nhưng ngày cụ thể vẫn chưa được công
+> bố. Người dùng nên kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử
+> dụng một dự án chưa hoàn thiện.
+>
+> This product is still in early access/beta testing. The website interface is
+> coming, but the specific date remains undisclosed. Users should expect
+> anomalies and understand the risks of working on an unfinished project.
+
+> [!NOTE]
+> **Đội ngũ phát triển — Development team.**
+>
+> Sản phẩm này được phát triển bởi một nhóm chỉ gồm 3 người, dựa trên kiến trúc
+> và lý thuyết mã nguồn mở. Hiện tại chúng tôi chưa tiếp nhận phản hồi dưới bất
+> kỳ hình thức nào.
+>
+> This product is backed by a team of only three people, using open-source
+> architecture and theory. We currently do not receive feedback in any form.
+
 <a id="muc-luc" name="muc-luc"></a>
 
 <details open>
