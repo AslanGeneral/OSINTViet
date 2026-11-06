@@ -47,8 +47,7 @@ ngày, vì lợi ích chung.
 > **Truy cập sớm / Thử nghiệm beta — Early access / Beta.**
 >
 > Sản phẩm này vẫn đang trong giai đoạn truy cập sớm/thử nghiệm beta. Giao diện
-> website sẽ ra mắt trong thời gian tới, nhưng ngày cụ thể vẫn chưa được công
-> bố. Người dùng nên kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử
+> website sẽ ra mắt trong thời gian tới, nhưng ngày cụ thể vẫn chưa được xác định. Người dùng nên kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử
 > dụng một dự án chưa hoàn thiện.
 >
 > This product is still in early access/beta testing. The website interface is
@@ -536,7 +535,7 @@ Số liệu hộ tường minh nên đặt trong `HouseholdProfile` (`--househol
 
 ## BYOK và quyền riêng tư
 
-Bạn có thể dùng API key của riêng mình (**BYOK**). Key chỉ đọc từ
+Bạn có thể dùng API key của riêng mình (**Bring Your Own Key - BYOK**). Key chỉ đọc từ
 `OSINT_BYOK_API_KEY` hoặc `--byok-stdin`, và **chỉ nằm trong bộ nhớ tiến
 trình**.
 
