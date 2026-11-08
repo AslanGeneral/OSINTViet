@@ -45,8 +45,6 @@ ngày, vì lợi ích chung.
 
 > [!CAUTION]
 > **Thử nghiệm beta kín — Closed beta.**
->
-<<<<<<< HEAD
 > Sản phẩm này vẫn đang trong giai đoạn thử nghiệm beta kín. Giao diện website sẽ
 > ra mắt trong thời gian tới, nhưng ngày cụ thể vẫn chưa được công bố. Mọi bất
 > thường gặp phải có thể được báo cáo qua [mục liên hệ](#contact). Người dùng nên
@@ -54,10 +52,8 @@ ngày, vì lợi ích chung.
 > hoàn thiện.
 =======
 > Sản phẩm này vẫn đang trong giai đoạn truy cập sớm/thử nghiệm beta. Giao diện
-> website sẽ ra mắt trong thời gian tới, nhưng ngày cụ thể vẫn chưa được xác định. Người dùng nên kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử
-> dụng một dự án chưa hoàn thiện.
->>>>>>> a5eddd1c56517563293c4f0e51ec31aa21344ab7
->
+> website sẽ ra mắt trong thời gian tới, nhưng ngày cụ thể vẫn chưa được xác định. Người dùng nên kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử dụng một dự án chưa hoàn thiện.
+> 
 > This product is still in closed beta testing. The website interface is coming,
 > but the specific date remains undisclosed. Any anomaly encountered can be
 > reported via the [contact](#contact) section. Users should expect anomalies and
