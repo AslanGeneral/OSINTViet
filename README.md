@@ -44,16 +44,18 @@ ngày, vì lợi ích chung.
 > khi dùng bất kỳ con số nào cho quyết định thật.
 
 > [!CAUTION]
-> **Truy cập sớm / Thử nghiệm beta — Early access / Beta.**
+> **Thử nghiệm beta kín — Closed beta.**
 >
-> Sản phẩm này vẫn đang trong giai đoạn truy cập sớm/thử nghiệm beta. Giao diện
-> website sẽ ra mắt trong thời gian tới, nhưng ngày cụ thể vẫn chưa được công
-> bố. Người dùng nên kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử
-> dụng một dự án chưa hoàn thiện.
+> Sản phẩm này vẫn đang trong giai đoạn thử nghiệm beta kín. Giao diện website sẽ
+> ra mắt trong thời gian tới, nhưng ngày cụ thể vẫn chưa được công bố. Mọi bất
+> thường gặp phải có thể được báo cáo qua [mục liên hệ](#contact). Người dùng nên
+> kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử dụng một dự án chưa
+> hoàn thiện.
 >
-> This product is still in early access/beta testing. The website interface is
-> coming, but the specific date remains undisclosed. Users should expect
-> anomalies and understand the risks of working on an unfinished project.
+> This product is still in closed beta testing. The website interface is coming,
+> but the specific date remains undisclosed. Any anomaly encountered can be
+> reported via the [contact](#contact) section. Users should expect anomalies and
+> understand the risks of working on an unfinished project.
 
 > [!NOTE]
 > **Đội ngũ phát triển — Development team.**
@@ -73,6 +75,7 @@ ngày, vì lợi ích chung.
 - [Dành cho người dùng thường](#nguoi-dung)
 - [Tuyên bố miễn trừ trách nhiệm](#mien-tru)
 - [English overview](#english)
+- [For researchers and developers](#researchers)
 - [Tổng quan kỹ thuật](#tong-quan)
 - [Chọn chế độ phù hợp](#chon-che-do)
 - [Bắt đầu nhanh](#bat-dau-nhanh)
@@ -88,6 +91,7 @@ ngày, vì lợi ích chung.
 - [Kiểm thử và stress](#kiem-thu)
 - [Giới hạn bạn cần biết](#gioi-han)
 - [Câu hỏi thường gặp](#faq)
+- [Liên hệ](#contact)
 - [Tài liệu](#tai-lieu)
 - [Giấy phép](#giay-phep)
 
@@ -242,6 +246,58 @@ not fill a missing value with a plausible guess.
   appendix and glossary.
 - [Vietnamese operating guide](docs/HUONG_DAN_PIPELINE_V2.md)
 - [Pipeline V2 completion report](docs/PIPELINE_V2_COMPLETION_REPORT.md)
+
+<a id="researchers" name="researchers"></a>
+
+## For researchers and developers
+
+OSINTViet is a local-first, deterministic pipeline with a clear boundary between
+calculation and language generation. The architecture is meant to be read,
+audited and extended, not treated as a black box.
+
+### Architectural fundamentals
+
+- **Seven-stage pipeline (S1–S7).** Raw input → classifier → run-scoped cache →
+  economic engine(s) → re-validation and purge → orchestration → JSON output.
+  Each stage has a typed contract in `app/pipeline_v2/contracts.py`, and a run
+  fails closed rather than skipping a stage.
+- **Calculation is separate from prose.** Macro and household results come from
+  the engines in `app/math_engine/`; the LLM is used for language work and
+  orchestration, not to produce or repair numbers. Missing data becomes
+  `not_estimated`, never a plausible guess.
+- **Configuration over hard-coding.** Coefficients, thresholds and calibration
+  values live in `config/*.json` and the engine calibration modules; they are
+  documented in the technical reference rather than scattered through the code.
+- **Macro engine (SPEC-MACRO-QUANT v5.7).** A 36-series Vietnam panel feeds
+  calibration, a Rao-Blackwellized particle filter, regime detection, an
+  adversarial shock search, Sobol simulation, Wasserstein medoid selection and
+  firm-level Arrow downscaling; a gatekeeper decides whether the run passes.
+- **Household engine.** QUAIDS demand, BPP income shocks, a buffer-stock model
+  and FGT/VEP poverty measures, runnable alone or fed by the macro artifact
+  through a read-only Arrow bridge.
+- **Re-validation is part of the method.** Grounding, consistency, completeness
+  and mode integrity are checked before output; a failed check quarantines the
+  run's cache entries and returns a structured error.
+- **Privacy boundaries are explicit.** Personal context stays in memory unless
+  `persist_opt_in=true`; BYOK keys are read at runtime and never written to
+  cache, logs or the database.
+
+### Documentation map
+
+| Document | What it covers |
+| --- | --- |
+| [`docs/TECHNICAL_REFERENCE.md`](docs/TECHNICAL_REFERENCE.md) | Full English reference: architecture, formulas, model coefficients, thresholds, configuration, appendices and glossary |
+| [`docs/PIPELINE_V2_COMPLETION_REPORT.md`](docs/PIPELINE_V2_COMPLETION_REPORT.md) | Implementation record, verification results and stress-test outcomes |
+| [`docs/discovery_report.md`](docs/discovery_report.md) | Phase 0 read-only audit: baseline commands, module map and dependency review |
+| [`docs/HUONG_DAN_PIPELINE_V2.md`](docs/HUONG_DAN_PIPELINE_V2.md) | Vietnamese operating guide for running and configuring Pipeline V2 |
+
+If you are extending the engine, start with the technical reference, then read
+the stage contracts and the corresponding tests under `tests/`. The deterministic
+suite runs without a live LLM:
+
+```bash
+.venv/bin/python tests/test_pipeline_v2.py
+```
 
 <a id="tong-quan" name="tong-quan"></a>
 
@@ -1020,6 +1076,19 @@ bộ. Bạn cần Internet khi muốn lấy dữ liệu World Bank mới, tải 
 | `http://127.0.0.1:8000/pipeline-v2` | Trang hướng dẫn trên website |
 | [`config/`](config/) | Ngưỡng, hệ số và cấu hình pipeline |
 | [`.env.example`](.env.example) | Danh sách biến môi trường (không chứa giá trị thật) |
+
+<a id="contact" name="contact"></a>
+
+## Liên hệ phát triển — Dev contact
+
+**Cách 1 — Email / Method 1 — Email:**
+[lecuirassier@outlook.com](mailto:lecuirassier@outlook.com)
+
+Hiện tại chúng tôi chỉ tiếp nhận liên hệ cho các mục đích: câu hỏi, báo cáo sự
+cố, hoặc tiết lộ bảo mật/pháp lý.
+
+We currently only accept contact for inquiries, issue reports, or security/legal
+disclosures.
 
 <a id="giay-phep" name="giay-phep"></a>
 
