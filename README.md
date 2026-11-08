@@ -50,11 +50,7 @@ ngày, vì lợi ích chung.
 > thường gặp phải có thể được báo cáo qua [mục liên hệ](#contact). Người dùng nên
 > kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử dụng một dự án chưa
 > hoàn thiện.
-<<<<<<< HEAD
->
-=======
 > 
->>>>>>> 53744ac88cc6349138a1491b87c04a83ff61498b
 > This product is still in closed beta testing. The website interface is coming,
 > but the specific date remains undisclosed. Any anomaly encountered can be
 > reported via the [contact](#contact) section. Users should expect anomalies and
