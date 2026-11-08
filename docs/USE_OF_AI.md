@@ -39,7 +39,7 @@ Hãy hình dung OSINTViet là một nhà máy nhỏ.
 
 - **Nguyên liệu đầu vào** là câu hỏi của bạn và, nếu có, hồ sơ hộ gia đình:
   thu nhập, chi tiêu, tài sản, nợ và số người.
-- **Sản phẩm đầu ra** là một báo cáo JSON ghi rõ nguồn, công thức, giả định,
+- **Sản phẩm đầu ra** là một báo cáo ghi rõ nguồn, công thức, giả định,
   cảnh báo và kết quả kiểm tra.
 
 Trong nhà máy đó có ba loại "người":
@@ -100,7 +100,7 @@ thật** là đặt sai vai trò.
 
 > **Tóm lại:** AI trong OSINTViet là người thư ký và người gợi ý ý tưởng. Máy
 > móc làm phép tính, trạm kiểm định giữ chất lượng, và hồ sơ lô giữ khả năng
-> truy xuất. AI không được thay ba thứ đó.
+> truy xuất. AI không thay được ba thứ đó.
 
 ---
 
@@ -304,7 +304,7 @@ Imagine OSINTViet as a small factory.
 
 - **Raw material** is your question and, if you provide one, a household profile:
   income, spending, assets, debt and household size.
-- **Finished product** is a JSON report that states its sources, formulas,
+- **Finished product** is a report that states its sources, formulas,
   assumptions, warnings and validation result.
 
 The factory has three kinds of "staff":
@@ -366,7 +366,7 @@ act on**.
 
 > **In one sentence:** AI in OSINTViet is the office assistant and the idea
 > generator. The machines do the arithmetic, the inspection station guards
-> quality, and the batch record preserves provenance. AI is not allowed to
+> quality, and the batch record preserves provenance. AI cannot
 > replace those three.
 
 ---
