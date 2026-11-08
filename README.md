@@ -52,11 +52,6 @@ ngày, vì lợi ích chung.
 > thường gặp phải có thể được báo cáo qua [mục liên hệ](#contact). Người dùng nên
 > kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử dụng một dự án chưa
 > hoàn thiện.
-=======
-> Sản phẩm này vẫn đang trong giai đoạn truy cập sớm/thử nghiệm beta. Giao diện
-> website sẽ ra mắt trong thời gian tới, nhưng ngày cụ thể vẫn chưa được xác định. Người dùng nên kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử
-> dụng một dự án chưa hoàn thiện.
->>>>>>> a5eddd1c56517563293c4f0e51ec31aa21344ab7
 >
 > This product is still in closed beta testing. The website interface is coming,
 > but the specific date remains undisclosed. Any anomaly encountered can be
@@ -67,11 +62,10 @@ ngày, vì lợi ích chung.
 > **Đội ngũ phát triển — Development team.**
 >
 > Sản phẩm này được phát triển bởi một nhóm chỉ gồm 3 người, dựa trên kiến trúc
-> và lý thuyết mã nguồn mở. Hiện tại chúng tôi chưa tiếp nhận phản hồi dưới bất
-> kỳ hình thức nào.
+> và lý thuyết mã nguồn mở. 
 >
 > This product is backed by a team of only three people, using open-source
-> architecture and theory. We currently do not receive feedback in any form.
+> architecture and theory. 
 
 <a id="muc-luc" name="muc-luc"></a>
 
@@ -82,6 +76,7 @@ ngày, vì lợi ích chung.
 - [Tuyên bố miễn trừ trách nhiệm](#mien-tru)
 - [English overview](#english)
 - [For researchers and developers](#researchers)
+- [Use of Artificial Intelligence](#ai-use)
 - [Tổng quan kỹ thuật](#tong-quan)
 - [Chọn chế độ phù hợp](#chon-che-do)
 - [Bắt đầu nhanh](#bat-dau-nhanh)
@@ -304,6 +299,24 @@ suite runs without a live LLM:
 ```bash
 .venv/bin/python tests/test_pipeline_v2.py
 ```
+
+<a id="ai-use" name="ai-use"></a>
+
+## Use of Artificial Intelligence
+
+OSINTViet dùng AI cho phần ngôn ngữ và so khớp ngữ nghĩa — đọc và tóm tắt, gợi
+ý chủ đề, phân loại hỗ trợ, sinh giả thuyết và phản biện — nhưng không dùng AI
+để tạo các kết quả kinh tế, bịa số liệu hay tự chứng nhận kết quả. Phần tính
+toán, kiểm định và truy xuất nguồn nằm trong mã nguồn và dữ liệu.
+
+AI is used for language and semantic-similarity work — reading and summarising,
+suggesting topics, advisory classification, and hypothesis generation/critique —
+but not for producing economic results, inventing numbers, or certifying its own
+output. Calculation, validation and provenance stay in code and data. A public
+chatbot is not a substitute: it does not run the economic engines, check
+evidence, or keep a reproducible batch record.
+
+Chi tiết song ngữ Việt/Anh: [`docs/USE_OF_AI.md`](docs/USE_OF_AI.md).
 
 <a id="tong-quan" name="tong-quan"></a>
 
