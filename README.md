@@ -50,9 +50,6 @@ ngày, vì lợi ích chung.
 > thường gặp phải có thể được báo cáo qua [mục liên hệ](#contact). Người dùng nên
 > kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử dụng một dự án chưa
 > hoàn thiện.
-=======
-> Sản phẩm này vẫn đang trong giai đoạn truy cập sớm/thử nghiệm beta. Giao diện
-> website sẽ ra mắt trong thời gian tới, nhưng ngày cụ thể vẫn chưa được xác định. Người dùng nên kỳ vọng sẽ gặp các bất thường và hiểu rõ rủi ro khi sử dụng một dự án chưa hoàn thiện.
 > 
 > This product is still in closed beta testing. The website interface is coming,
 > but the specific date remains undisclosed. Any anomaly encountered can be
