@@ -74,7 +74,7 @@ ngày, vì lợi ích chung.
 - [Tuyên bố miễn trừ trách nhiệm](#mien-tru)
 - [English overview](#english)
 - [For researchers and developers](#researchers)
-- [Use of Artificial Intelligence](#ai-use)
+- [Ứng dụng AI - Use of Artificial Intelligence](#ai-use)
 - [Tổng quan kỹ thuật](#tong-quan)
 - [Chọn chế độ phù hợp](#chon-che-do)
 - [Bắt đầu nhanh](#bat-dau-nhanh)
@@ -300,7 +300,7 @@ suite runs without a live LLM:
 
 <a id="ai-use" name="ai-use"></a>
 
-## Use of Artificial Intelligence
+## Ứng dụng Trí tuệ Nhân tạo (Use of Artificial Intelligence)
 
 OSINTViet dùng AI cho phần ngôn ngữ và so khớp ngữ nghĩa — đọc và tóm tắt, gợi
 ý chủ đề, phân loại hỗ trợ, sinh giả thuyết và phản biện — nhưng không dùng AI
