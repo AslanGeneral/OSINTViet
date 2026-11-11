@@ -32,7 +32,6 @@ class CacheLogEntryRow(SQLModel, table=True):
     embedding_json: Optional[str] = Field(default=None)
     source_refs_json: str = Field(default="[]")
     metadata_json: str = Field(default="{}")
-    # Only populated when the user explicitly opted in.
     personal_context_json: Optional[str] = Field(default=None)
 
 
@@ -48,7 +47,6 @@ class CachePurgeAuditRow(SQLModel, table=True):
     entries_verified: int = Field(default=0)
     entries_removed: int = Field(default=0)
     counts_json: str = Field(default="{}")
-    # Redacted message only; never cache content.
     error_redacted: str = Field(default="")
 
 
