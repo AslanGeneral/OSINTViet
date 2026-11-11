@@ -26,8 +26,6 @@ class Article(SQLModel, table=True):
     relevance_score: float = Field(default=0.0)
     ingested_at: datetime = Field(default_factory=utc_now, index=True)
     domain_tag: str = Field(default="general", index=True)
-    # Canonical, validated JSON payload used as the SQLite write input.  The
-    # normalized columns above remain queryable; this column is the audit trail.
     payload_json: str = Field(default="{}")
 
 
