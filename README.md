@@ -59,10 +59,10 @@ ngày, vì lợi ích chung.
 > [!NOTE]
 > **Đội ngũ phát triển — Development team.**
 >
-> Sản phẩm này được phát triển bởi một nhóm chỉ gồm 3 người, dựa trên kiến trúc
+> Sản phẩm này được phát triển bởi một nhóm chỉ gồm 4 người, dựa trên kiến trúc
 > và lý thuyết mã nguồn mở. 
 >
-> This product is backed by a team of only three people, using open-source
+> This product is backed by a team of only four people, using open-source
 > architecture and theory. 
 
 <a id="muc-luc" name="muc-luc"></a>
