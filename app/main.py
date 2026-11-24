@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.database import engine as database_engine, init_db
 from app.plugins import load_plugins
 from app.services.embedding_engine import embedding_engine
+from app.services.llm_engine import apply_unified_api_config
 
 # 1. IMPORT CÁC ROUTER Ở ĐÂY
 from app.api.v1 import reading_room
@@ -26,6 +27,7 @@ from app.api.v1 import pipeline_v2
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     load_plugins()
+    apply_unified_api_config()
     await init_db()
     print("[*] Database initialized. Ready to rock.")
     yield

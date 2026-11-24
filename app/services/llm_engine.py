@@ -8,6 +8,27 @@ from app.core.config import settings
 
 T = TypeVar("T", bound=BaseModel)
 
+def apply_unified_api_config():
+    """Load and apply Unified API Distributor configuration if exists."""
+    cfg_path = os.path.join(os.path.dirname(__file__), "../../config/unified_api_config.json")
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if data.get("enabled"):
+                settings.CLOUD_API_KEY = data.get("api_key", settings.CLOUD_API_KEY)
+                settings.CLOUD_API_BASE_URL = data.get("base_url", settings.CLOUD_API_BASE_URL)
+                settings.CLOUD_MODEL_NAME = data.get("model_name", settings.CLOUD_MODEL_NAME)
+                settings.LLM_PROVIDER = "openai_compatible"
+                os.environ["OSINT_BYOK_API_KEY"] = settings.CLOUD_API_KEY
+                os.environ["OSINT_BYOK_BASE_URL"] = settings.CLOUD_API_BASE_URL
+                os.environ["OSINT_BYOK_MODEL"] = settings.CLOUD_MODEL_NAME
+        except Exception:
+            pass
+
+apply_unified_api_config()
+
+
 class LLMRoutingEngine:
     def __init__(self):
         self.provider = settings.LLM_PROVIDER
@@ -16,7 +37,8 @@ class LLMRoutingEngine:
             os.makedirs(self.cache_dir, exist_ok=True)
 
     def _get_cache_key(self, prompt: str, schema_name: str) -> str:
-        payload = f"{prompt}:{schema_name}:{self.provider}"
+        provider = getattr(settings, "LLM_PROVIDER", self.provider)
+        payload = f"{prompt}:{schema_name}:{provider}:{settings.CLOUD_MODEL_NAME}"
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     async def generate_structured(self, prompt: str, response_model: Type[T]) -> T:
@@ -39,7 +61,8 @@ class LLMRoutingEngine:
         )
 
         # 3. Route request
-        if self.provider == "local_ollama":
+        provider = getattr(settings, "LLM_PROVIDER", self.provider)
+        if provider == "local_ollama":
             raw_json = await self._call_ollama(system_instruction, prompt)
         else:
             raw_json = await self._call_cloud_api(system_instruction, prompt)
@@ -92,9 +115,13 @@ class LLMRoutingEngine:
                 )
 
     async def _call_cloud_api(self, system: str, user_content: str) -> str:
-        """Dự phòng gọi OpenAI-compatible API"""
-        url = f"{settings.CLOUD_API_BASE_URL}/chat/completions"
-        headers = {"Authorization": f"Bearer {settings.CLOUD_API_KEY}"}
+        """Gọi OpenAI-compatible API từ Unified API Distributor hoặc Cloud endpoint"""
+        base = settings.CLOUD_API_BASE_URL.rstrip('/')
+        url = base if base.endswith('/chat/completions') else f"{base}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {settings.CLOUD_API_KEY}",
+            "Content-Type": "application/json",
+        }
         payload = {
             "model": settings.CLOUD_MODEL_NAME,
             "messages": [
@@ -103,9 +130,18 @@ class LLMRoutingEngine:
             ],
             "response_format": {"type": "json_object"}
         }
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            res = await client.post(url, headers=headers, json=payload)
-            res.raise_for_status()
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            try:
+                res = await client.post(url, headers=headers, json=payload)
+                res.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                if "response_format" in exc.response.text.lower():
+                    payload_fallback = dict(payload)
+                    payload_fallback.pop("response_format", None)
+                    res = await client.post(url, headers=headers, json=payload_fallback)
+                    res.raise_for_status()
+                else:
+                    raise
             data = res.json()
             return data["choices"][0]["message"]["content"]
 

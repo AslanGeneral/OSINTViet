@@ -16,60 +16,70 @@ export async function fetchArticles(limit = 10, offset = 0): Promise<Article[]> 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn('API error fetching articles, using fallback data:', err);
-    return [
-      {
-        id: 'fallback-1',
-        title: 'Áp lực lạm phát chi phí đẩy và thách thức bảo toàn sức mua hộ gia đình năm 2026',
-        source: 'Viện Nghiên cứu Kinh tế OSINT',
-        url: 'https://osint-monitor.vn/analysis/inflation-cost-push-2026',
-        thumbnail: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80',
-        chapeau: 'Biến động chuỗi cung ứng năng lượng và tỷ giá USD/VND tạo áp lực lan tỏa trực tiếp vào giỏ hàng thực phẩm thiết yếu. Báo cáo định lượng phân tích tác động trễ 3 tháng đến biên độ chi tiêu của các hộ gia đình đô thị.',
-        content: `Biến động chuỗi cung ứng năng lượng và tỷ giá USD/VND tạo áp lực lan tỏa trực tiếp vào giỏ hàng thực phẩm thiết yếu. Báo cáo định lượng phân tích tác động trễ 3 tháng đến biên độ chi tiêu của các hộ gia đình đô thị.
-
-Trong bối cảnh nền kinh tế toàn cầu đối mặt với nhiều cú sốc nguồn cung, chỉ số CPI của các nhóm hàng lương thực và năng lượng tiếp tục ghi nhận đà tăng nhẹ. Theo tính toán kinh lượng, độ co giãn giá của các mặt hàng thiết yếu tại các đô thị lớn đạt mức 0.45, đồng nghĩa với việc mỗi 1% tăng giá xăng dầu sẽ kích hoạt làn sóng điều chỉnh giá tiêu dùng thêm 0.35% sau một chu kỳ 45-60 ngày.
-
-Đối với người tiêu dùng cá nhân, tác động này không chỉ phản ánh qua hóa đơn xăng dầu trực tiếp mà còn thấm sâu vào học phí, chi phí sinh hoạt thường nhật và áp lực lãi suất vay mua nhà.`,
-        ingested_at: new Date().toISOString(),
-      },
-      {
-        id: 'fallback-2',
-        title: 'Giá xăng dầu và chu kỳ điều hành: Bóc tách cơ chế truyền dẫn vi mô',
-        source: 'VnEconomy Macro Insight',
-        url: 'https://vneconomy.vn/gia-xang-dau-va-co-che-truyen-dan-vi-mo.htm',
-        thumbnail: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&w=1200&q=80',
-        chapeau: 'Mỗi nhịp điều chỉnh giá xăng dầu bán lẻ tác động ra sao tới biên lợi nhuận của tài xế công nghệ và chi phí đi chợ hàng ngày? Phân tích định lượng từ dữ liệu mô phỏng vi mô.',
-        content: `Mỗi nhịp điều chỉnh giá xăng dầu bán lẻ tác động ra sao tới biên lợi nhuận của tài xế công nghệ và chi phí đi chợ hàng ngày? Phân tích định lượng từ dữ liệu mô phỏng vi mô.
-
-Giá xăng RON 95 sau các kỳ điều hành đã dao động quanh ngưỡng 23.500 - 24.000 đồng/lít. Với một hộ gia đình trung lưu sử dụng 2 xe máy và 1 ôtô cá nhân, chi phí nhiên liệu chiếm khoảng 8-12% tổng chi tiêu hàng tháng. Tuy nhiên, hiệu ứng cấp hai lên dịch vụ ăn uống và cước vận tải mới là yếu tố tạo ra lực cản lớn nhất.`,
-        ingested_at: new Date().toISOString(),
-      },
-      {
-        id: 'fallback-3',
-        title: 'Tỷ giá USD/VND và chiến lược phòng vệ dòng tiền cá nhân',
-        source: 'Thời Báo Tài Chính',
-        url: 'https://thoibaotaichinh.vn/ty-gia-usd-vnd-va-dong-tien-ca-nhan.htm',
-        thumbnail: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?auto=format&fit=crop&w=1200&q=80',
-        chapeau: 'Chênh lệch lãi suất và chỉ số DXY tăng cao đặt ra bài toán tái cơ cấu danh mục tài sản cá nhân giữa tiết kiệm VND, vàng và các kênh đầu tư có thu nhập cố định.',
-        content: `Chênh lệch lãi suất và chỉ số DXY tăng cao đặt ra bài toán tái cơ cấu danh mục tài sản cá nhân giữa tiết kiệm VND, vàng và các kênh đầu tư có thu nhập cố định.
-
-Khi Ngân hàng Trung ương Mỹ duy trì mặt bằng lãi suất thận trọng, áp lực tỷ giá lên đồng bản tệ đòi hỏi các cơ quan quản lý phải cân đối giữa ổn định vĩ mô và hỗ trợ thanh khoản cho nền kinh tế.`,
-        ingested_at: new Date().toISOString(),
-      },
-      {
-        id: 'fallback-4',
-        title: 'Tăng trưởng tín dụng tiêu dùng: Cơ hội và rủi ro đệm an toàn thanh khoản',
-        source: 'Bản Tin Ngân Hàng',
-        url: 'https://osint-monitor.vn/analysis/credit-growth-risks',
-        thumbnail: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1200&q=80',
-        chapeau: 'Mức độ đòn bẩy tài chính của các hộ gia đình trẻ gia tăng nhanh chóng qua thẻ tín dụng và vay tiêu dùng. Đánh giá ngưỡng an toàn MDSR và rủi ro vỡ nợ tiềm ẩn.',
-        content: `Mức độ đòn bẩy tài chính của các hộ gia đình trẻ gia tăng nhanh chóng qua thẻ tín dụng và vay tiêu dùng. Đánh giá ngưỡng an toàn MDSR và rủi ro vỡ nợ tiềm ẩn.
-
-Trong mô hình kiểm tra sức chịu đựng tài chính vi mô, tỷ lệ nghĩa vụ trả nợ trên thu nhập (MDSR) vượt quá 35% được xác định là vùng rủi ro cảnh báo đỏ.`,
-        ingested_at: new Date().toISOString(),
-      },
-    ];
+    console.warn('API error fetching articles, returning empty array:', err);
+    return [];
   }
+}
+
+export interface UnifiedApiConfigData {
+  enabled: boolean;
+  provider_name: string;
+  api_key?: string;
+  base_url: string;
+  model_name: string;
+  is_configured?: boolean;
+  masked_key?: string;
+  current_llm_provider?: string;
+}
+
+export async function fetchUnifiedApiConfig(): Promise<UnifiedApiConfigData> {
+  const res = await fetch(`${API_BASE}/admin/unified-api`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+export async function saveUnifiedApiConfig(payload: {
+  enabled: boolean;
+  provider_name: string;
+  api_key: string;
+  base_url: string;
+  model_name: string;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE}/admin/unified-api`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return await res.json();
+}
+
+export async function testUnifiedApi(payload?: {
+  api_key?: string;
+  base_url?: string;
+  model_name?: string;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE}/admin/unified-api/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return await res.json();
+}
+
+export async function purgeAllArticles(): Promise<any> {
+  const res = await fetch(`${API_BASE}/admin/articles`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
 }
 
 export async function fetchArticleDetail(id: string): Promise<Article> {

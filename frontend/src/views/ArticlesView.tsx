@@ -158,8 +158,8 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({ onHandoffToTool, onN
         )}
 
         {!loading && filteredArticles.length === 0 && (
-          <div className="p-12 text-center bg-gray-50 border border-gray-200 font-mono text-xs text-gray-400">
-            Không tìm thấy bài viết nào phù hợp với bộ lọc.
+          <div className="p-12 text-center bg-gray-50 border border-dashed border-gray-300 font-mono text-base text-gray-500">
+            null
           </div>
         )}
 

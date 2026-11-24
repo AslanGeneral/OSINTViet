@@ -123,8 +123,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigateTab, onHandoffToTo
 
         {/* Empty state (renders null as requested) */}
         {!loading && latestArticles.length === 0 && (
-          <div className="p-8 border border-gray-200 bg-gray-50 text-center font-mono text-xs text-gray-400">
-            {t('sec1_empty_articles')}
+          <div className="p-12 border border-dashed border-gray-300 bg-gray-50 text-center font-mono text-base text-gray-500">
+            null
           </div>
         )}
 

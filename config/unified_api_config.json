@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "provider_name": "OpenRouter",
+  "api_key": "sk-or-v1-demo-test-key-1234567890",
+  "base_url": "https://openrouter.ai/api/v1",
+  "model_name": "google/gemini-2.0-flash-exp:free"
+}

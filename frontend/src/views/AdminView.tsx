@@ -6,26 +6,30 @@ import {
   testApi,
   publishArticle,
   fetchErrorLogs,
+  fetchUnifiedApiConfig,
+  saveUnifiedApiConfig,
+  testUnifiedApi,
+  purgeAllArticles,
 } from '../services/api';
 import { SystemStats } from '../types';
 import {
   Lock,
-  Unlock,
   Shield,
   FilePlus,
-  Key,
-  Sliders,
   Edit3,
-  Activity,
   CheckCircle2,
   AlertCircle,
   RefreshCw,
   Cpu,
   Database,
   Globe,
-  Radio,
   Server,
   Terminal,
+  Trash2,
+  Zap,
+  Network,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
@@ -39,21 +43,35 @@ export const AdminView: React.FC = () => {
   const [passcode, setPasscode] = useState('');
   const [authError, setAuthError] = useState(false);
 
-  // Tabs for IV.1, IV.2, IV.3
-  const [activeTab, setActiveTab] = useState<'publish' | 'system' | 'customizer'>('publish');
+  // Tabs: unified_api, publish (IV.1), system (IV.2), customizer (IV.3)
+  const [activeTab, setActiveTab] = useState<'distributor' | 'publish' | 'system' | 'customizer'>('distributor');
 
-  // IV.1 Publish article state
+  // Unified API Distributor state
+  const [distributorEnabled, setDistributorEnabled] = useState(true);
+  const [distributorProvider, setDistributorProvider] = useState('OpenRouter');
+  const [distributorApiKey, setDistributorApiKey] = useState('');
+  const [distributorBaseUrl, setDistributorBaseUrl] = useState('https://openrouter.ai/api/v1');
+  const [distributorModel, setDistributorModel] = useState('google/gemini-2.0-flash-exp:free');
+  const [distributorMaskedKey, setDistributorMaskedKey] = useState('');
+  const [distributorIsConfigured, setDistributorIsConfigured] = useState(false);
+  const [currentLlmProvider, setCurrentLlmProvider] = useState('local_ollama');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [distributorLoading, setDistributorLoading] = useState(false);
+  const [distributorTesting, setDistributorTesting] = useState(false);
+  const [distributorTestResult, setDistributorTestResult] = useState<any>(null);
+  const [distributorStatus, setDistributorStatus] = useState<string | null>(null);
+
+  // IV.1 Publish article state - Defaults to empty/null
   const [artTitle, setArtTitle] = useState('');
   const [artChapeau, setArtChapeau] = useState('');
   const [artContent, setArtContent] = useState('');
-  const [artThumbnail, setArtThumbnail] = useState(
-    'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80'
-  );
+  const [artThumbnail, setArtThumbnail] = useState(''); // Default empty / null
   const [artSource, setArtSource] = useState('Ban Biên Tập OSINT');
   const [artUrl, setArtUrl] = useState('');
   const [artTag, setArtTag] = useState('macro_econ');
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [purging, setPurging] = useState(false);
 
   // IV.2 System & Token stats
   const [stats, setStats] = useState<SystemStats | null>(null);
@@ -75,6 +93,7 @@ export const AdminView: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       loadStats();
+      loadUnifiedApi();
     }
   }, [isAuthenticated]);
 
@@ -83,16 +102,122 @@ export const AdminView: React.FC = () => {
     fetchErrorLogs().then((logs) => setErrorLogs(logs)).catch(console.error);
   };
 
+  const loadUnifiedApi = async () => {
+    try {
+      const cfg = await fetchUnifiedApiConfig();
+      setDistributorEnabled(cfg.enabled);
+      setDistributorProvider(cfg.provider_name || 'OpenRouter');
+      setDistributorBaseUrl(cfg.base_url || 'https://openrouter.ai/api/v1');
+      setDistributorModel(cfg.model_name || 'google/gemini-2.0-flash-exp:free');
+      setDistributorMaskedKey(cfg.masked_key || '');
+      setDistributorIsConfigured(!!cfg.is_configured);
+      if (cfg.current_llm_provider) {
+        setCurrentLlmProvider(cfg.current_llm_provider);
+      }
+    } catch (err) {
+      console.error('Failed to load Unified API config:', err);
+    }
+  };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Default demo passcode or configured passcode
     if (passcode === 'vro_change_this_secret_passcode_123' || passcode.length >= 4) {
       setIsAuthenticated(true);
       sessionStorage.setItem('admin_authenticated', 'true');
       setAuthError(false);
       loadStats();
+      loadUnifiedApi();
     } else {
       setAuthError(true);
+    }
+  };
+
+  // Distributor presets helper
+  const handleApplyPreset = (preset: 'openrouter' | 'oneapi' | 'deepseek' | 'groq') => {
+    switch (preset) {
+      case 'openrouter':
+        setDistributorProvider('OpenRouter');
+        setDistributorBaseUrl('https://openrouter.ai/api/v1');
+        setDistributorModel('google/gemini-2.0-flash-exp:free');
+        break;
+      case 'oneapi':
+        setDistributorProvider('OneAPI / NewAPI');
+        setDistributorBaseUrl('https://api.oneapi.com/v1');
+        setDistributorModel('gpt-4o-mini');
+        break;
+      case 'deepseek':
+        setDistributorProvider('DeepSeek');
+        setDistributorBaseUrl('https://api.deepseek.com/v1');
+        setDistributorModel('deepseek-chat');
+        break;
+      case 'groq':
+        setDistributorProvider('Groq Cloud');
+        setDistributorBaseUrl('https://api.groq.com/openai/v1');
+        setDistributorModel('llama-3.3-70b-versatile');
+        break;
+    }
+  };
+
+  const handleTestDistributor = async () => {
+    setDistributorTesting(true);
+    setDistributorTestResult(null);
+    try {
+      const res = await testUnifiedApi({
+        api_key: distributorApiKey.trim() || undefined,
+        base_url: distributorBaseUrl.trim(),
+        model_name: distributorModel.trim(),
+      });
+      setDistributorTestResult(res);
+    } catch (err: any) {
+      setDistributorTestResult({ status: 'error', detail: err.message });
+    } finally {
+      setDistributorTesting(false);
+    }
+  };
+
+  const handleSaveDistributor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!distributorApiKey.trim() && !distributorIsConfigured) {
+      setDistributorStatus('Vui lòng nhập API Key cho Unified Distributor!');
+      return;
+    }
+
+    setDistributorLoading(true);
+    setDistributorStatus('Đang lưu cấu hình và kích hoạt distributor...');
+    try {
+      const res = await saveUnifiedApiConfig({
+        enabled: distributorEnabled,
+        provider_name: distributorProvider,
+        api_key: distributorApiKey.trim(),
+        base_url: distributorBaseUrl.trim(),
+        model_name: distributorModel.trim(),
+      });
+      setDistributorStatus(`✓ ${res.message || 'Đã lưu và kích hoạt Unified API Distributor thành công!'}`);
+      setDistributorApiKey('');
+      await loadUnifiedApi();
+      loadStats();
+    } catch (err: any) {
+      setDistributorStatus(`Lỗi kết nối distributor: ${err.message}`);
+    } finally {
+      setDistributorLoading(false);
+    }
+  };
+
+  const handlePurgeAllArticles = async () => {
+    const ok = window.confirm(
+      'CẢNH BÁO: Thao tác này sẽ xóa toàn bộ tất cả bài viết mẫu trong cơ sở dữ liệu SQLite và đưa trạng thái về "null". Bạn có chắc chắn muốn thực hiện?'
+    );
+    if (!ok) return;
+
+    setPurging(true);
+    try {
+      await purgeAllArticles();
+      alert('✓ Đã xóa sạch toàn bộ bài viết mẫu! Danh sách bài viết trên trang chủ và kho bài viết hiện là null.');
+      loadStats();
+    } catch (err: any) {
+      alert(`Lỗi khi xóa bài viết: ${err.message}`);
+    } finally {
+      setPurging(false);
     }
   };
 
@@ -110,7 +235,7 @@ export const AdminView: React.FC = () => {
         title: artTitle,
         chapeau: artChapeau,
         content: artContent,
-        thumbnail: artThumbnail,
+        thumbnail: artThumbnail.trim() || undefined,
         source: artSource,
         url: artUrl,
         domain_tag: artTag,
@@ -119,6 +244,7 @@ export const AdminView: React.FC = () => {
       setArtTitle('');
       setArtChapeau('');
       setArtContent('');
+      setArtThumbnail('');
       loadStats();
     } catch (err: any) {
       setPublishStatus(`Lỗi khi đăng bài: ${err.message}`);
@@ -248,9 +374,21 @@ export const AdminView: React.FC = () => {
         </div>
       </section>
 
-      {/* Admin Navigation Tabs (IV.1, IV.2, IV.3) */}
+      {/* Admin Navigation Tabs */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex border-b border-gray-200 overflow-x-auto text-xs font-mono">
+          <button
+            onClick={() => setActiveTab('distributor')}
+            className={`py-3 px-5 border-b-2 font-bold uppercase tracking-wider transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'distributor'
+                ? 'border-brand-accent text-brand-accent bg-brand-subtle'
+                : 'border-transparent text-gray-600 hover:text-brand-dark'
+            }`}
+          >
+            <Network className="w-4 h-4" />
+            <span>Unified API Distributor</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('publish')}
             className={`py-3 px-5 border-b-2 font-bold uppercase tracking-wider transition-all flex items-center gap-2 whitespace-nowrap ${
@@ -293,20 +431,283 @@ export const AdminView: React.FC = () => {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* =====================================================================
-            TAB IV.1: ĐĂNG TẢI BÀI VIẾT MỚI
+            TAB UNIFIED API DISTRIBUTOR
+           ===================================================================== */}
+        {activeTab === 'distributor' && (
+          <div className="bg-white border border-gray-200 p-6 md:p-8 shadow-xs space-y-6">
+            <div className="border-b border-gray-100 pb-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-mono uppercase tracking-widest text-brand-accent font-bold">
+                  UNIFIED API DISTRIBUTOR • MULTI-GATEWAY ADAPTER
+                </span>
+                <h2 className="font-serif text-2xl font-bold text-brand-dark mt-1">
+                  Kết Nối Khóa API Distributor Thống Nhất
+                </h2>
+                <p className="text-xs font-serif text-gray-600 mt-1 max-w-3xl">
+                  Dễ dàng kết nối 1 API Key duy nhất từ OpenRouter, OneAPI, NewAPI, DeepSeek hoặc bất kỳ cổng phân phối OpenAI-compatible proxy nào để vận hành toàn bộ AI Reading Room và Pipeline V2.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono font-bold text-gray-500">Động cơ hiện tại:</span>
+                <span
+                  className={`px-2.5 py-1 rounded text-xs font-mono font-bold ${
+                    currentLlmProvider === 'openai_compatible'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : 'bg-amber-100 text-amber-800 border border-amber-300'
+                  }`}
+                >
+                  {currentLlmProvider === 'openai_compatible' ? '✓ Unified Distributor Active' : 'Local Ollama Engine'}
+                </span>
+              </div>
+            </div>
+
+            {/* Presets Selection */}
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded space-y-2">
+              <label className="block text-gray-700 font-mono text-xs font-bold">
+                Chọn Cổng Phân Phối Nhanh (Distributor Presets):
+              </label>
+              <div className="flex flex-wrap gap-2 text-xs font-mono">
+                <button
+                  type="button"
+                  onClick={() => handleApplyPreset('openrouter')}
+                  className="px-3 py-1.5 bg-white border border-gray-300 hover:border-brand-accent hover:text-brand-accent font-medium rounded transition-colors shadow-2xs"
+                >
+                  🌐 OpenRouter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyPreset('oneapi')}
+                  className="px-3 py-1.5 bg-white border border-gray-300 hover:border-brand-accent hover:text-brand-accent font-medium rounded transition-colors shadow-2xs"
+                >
+                  🔄 OneAPI / NewAPI
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyPreset('deepseek')}
+                  className="px-3 py-1.5 bg-white border border-gray-300 hover:border-brand-accent hover:text-brand-accent font-medium rounded transition-colors shadow-2xs"
+                >
+                  🐋 DeepSeek Official
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyPreset('groq')}
+                  className="px-3 py-1.5 bg-white border border-gray-300 hover:border-brand-accent hover:text-brand-accent font-medium rounded transition-colors shadow-2xs"
+                >
+                  ⚡ Groq Cloud
+                </button>
+              </div>
+            </div>
+
+            {/* Status notification */}
+            {distributorStatus && (
+              <div
+                className={`p-3 text-xs font-mono rounded ${
+                  distributorStatus.startsWith('✓')
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : 'bg-red-50 text-red-800 border border-red-200'
+                }`}
+              >
+                {distributorStatus}
+              </div>
+            )}
+
+            {/* Config Form */}
+            <form onSubmit={handleSaveDistributor} className="space-y-4 text-xs font-mono">
+              <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded">
+                <input
+                  type="checkbox"
+                  id="enable-distributor"
+                  checked={distributorEnabled}
+                  onChange={(e) => setDistributorEnabled(e.target.checked)}
+                  className="rounded text-brand-accent focus:ring-brand-accent w-4 h-4 cursor-pointer"
+                />
+                <label htmlFor="enable-distributor" className="cursor-pointer text-gray-800 font-bold">
+                  Kích hoạt định tuyến Unified API Distributor cho Reading Room &amp; Pipeline V2
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Tên Distributor / Đơn vị phân phối:
+                  </label>
+                  <input
+                    type="text"
+                    value={distributorProvider}
+                    onChange={(e) => setDistributorProvider(e.target.value)}
+                    placeholder="Ví dụ: OpenRouter, OneAPI, DeepSeek..."
+                    className="w-full p-2.5 border border-gray-300 rounded focus:border-brand-accent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Mã Model AI (Model Name / ID):
+                  </label>
+                  <input
+                    type="text"
+                    value={distributorModel}
+                    onChange={(e) => setDistributorModel(e.target.value)}
+                    placeholder="Ví dụ: google/gemini-2.0-flash-exp:free hoặc deepseek/deepseek-chat"
+                    className="w-full p-2.5 border border-gray-300 rounded focus:border-brand-accent outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">
+                  Base URL của Unified Distributor:
+                </label>
+                <input
+                  type="url"
+                  value={distributorBaseUrl}
+                  onChange={(e) => setDistributorBaseUrl(e.target.value)}
+                  placeholder="https://openrouter.ai/api/v1 hoặc https://api.oneapi.com/v1"
+                  className="w-full p-2.5 border border-gray-300 rounded focus:border-brand-accent outline-none font-mono"
+                />
+                <div className="text-[10px] text-gray-400 mt-1">
+                  Chuẩn OpenAI API endpoint: hệ thống sẽ tự động gọi /chat/completions.
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-gray-700 font-bold">
+                    Khóa API Key của Distributor: <span className="text-red-600">*</span>
+                  </label>
+                  {distributorIsConfigured && distributorMaskedKey && (
+                    <span className="text-[11px] text-emerald-600 font-mono">
+                      Khóa đã lưu: {distributorMaskedKey}
+                    </span>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <input
+                    type={showApiKey ? 'text' : 'password'}
+                    value={distributorApiKey}
+                    onChange={(e) => setDistributorApiKey(e.target.value)}
+                    placeholder={
+                      distributorIsConfigured
+                        ? 'Nhập khóa mới nếu muốn thay đổi (bỏ trống để giữ khóa hiện tại)'
+                        : 'sk-or-v1-... hoặc sk-...'
+                    }
+                    className="w-full p-2.5 pr-10 border border-gray-300 rounded focus:border-brand-accent outline-none font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3 pt-3">
+                <button
+                  type="submit"
+                  disabled={distributorLoading}
+                  className="px-6 py-2.5 bg-brand-accent hover:bg-brand-accent-hover disabled:bg-gray-400 text-white font-bold uppercase tracking-wider rounded transition-colors flex items-center gap-2"
+                >
+                  {distributorLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>💾 Lưu &amp; Kích Hoạt Distributor</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleTestDistributor}
+                  disabled={distributorTesting}
+                  className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 text-brand-dark border border-gray-300 font-bold uppercase tracking-wider rounded transition-colors flex items-center gap-2"
+                >
+                  {distributorTesting ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="w-3.5 h-3.5 text-amber-600" />
+                  )}
+                  <span>⚡ Test Kết Nối Distributor</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Test Connection Output Banner */}
+            {distributorTestResult && (
+              <div
+                className={`p-4 rounded border text-xs font-mono space-y-2 mt-4 ${
+                  distributorTestResult.status === 'success'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : 'bg-red-50 border-red-200 text-red-900'
+                }`}
+              >
+                <div className="font-bold flex items-center gap-1.5">
+                  {distributorTestResult.status === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  )}
+                  <span>
+                    {distributorTestResult.status === 'success'
+                      ? '✓ Kết Nối Thành Công Đến Unified API Distributor!'
+                      : '✗ Lỗi Kết Nối Đến Distributor:'}
+                  </span>
+                  {distributorTestResult.latency_ms && (
+                    <span className="text-gray-600 font-normal">
+                      (Độ trễ phản hồi: {distributorTestResult.latency_ms} ms)
+                    </span>
+                  )}
+                </div>
+
+                {distributorTestResult.preview && (
+                  <div className="bg-white/80 p-2.5 rounded border border-emerald-200/50">
+                    <span className="font-bold text-[11px] block text-emerald-800 mb-1">AI Phản Hồi:</span>
+                    <p className="text-gray-800 text-xs italic">"{distributorTestResult.preview}"</p>
+                  </div>
+                )}
+
+                {distributorTestResult.detail && (
+                  <div className="text-red-700 text-xs">
+                    Chi tiết: {distributorTestResult.detail}
+                  </div>
+                )}
+
+                <div className="text-[10px] text-gray-500">
+                  Model: {distributorTestResult.model} | Endpoint: {distributorTestResult.endpoint}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB IV.1: ĐĂNG TẢI BÀI VIẾT MỚI & PURGE VỀ NULL
            ===================================================================== */}
         {activeTab === 'publish' && (
           <div className="bg-white border border-gray-200 p-6 md:p-8 shadow-xs space-y-6">
-            <div className="border-b border-gray-100 pb-3">
-              <span className="text-xs font-mono uppercase tracking-widest text-brand-accent font-bold">
-                MỤC IV.1 • BÀI VIẾT PHÂN TÍCH
-              </span>
-              <h2 className="font-serif text-2xl font-bold text-brand-dark mt-1">
-                Xuất Bản Bài Viết Mới Lên Hệ Thống
-              </h2>
-              <p className="text-xs font-serif text-gray-600 mt-1">
-                Bài viết sau khi đăng tải sẽ hiển thị trên trang chủ (3-4 bài gần nhất) và thư viện bài viết báo điện tử, tích hợp sẵn tính năng phân tích AI.
-              </p>
+            <div className="border-b border-gray-100 pb-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-mono uppercase tracking-widest text-brand-accent font-bold">
+                  MỤC IV.1 • BÀI VIẾT PHÂN TÍCH
+                </span>
+                <h2 className="font-serif text-2xl font-bold text-brand-dark mt-1">
+                  Xuất Bản Bài Viết Mới Lên Hệ Thống
+                </h2>
+                <p className="text-xs font-serif text-gray-600 mt-1">
+                  Bài viết sau khi đăng tải sẽ hiển thị trên trang chủ (3-4 bài gần nhất) và thư viện báo điện tử, tích hợp sẵn tính năng phân tích AI.
+                </p>
+              </div>
+
+              {/* Reset to null button */}
+              <button
+                type="button"
+                onClick={handlePurgeAllArticles}
+                disabled={purging}
+                className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors shrink-0"
+              >
+                {purging ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>Xóa Toàn Bộ Bài Viết Mẫu (Reset về null)</span>
+              </button>
             </div>
 
             {publishStatus && (
@@ -387,12 +788,13 @@ export const AdminView: React.FC = () => {
 
               <div>
                 <label className="block text-gray-700 font-bold mb-1">
-                  URL Hình ảnh Thumbnail:
+                  URL Hình ảnh Thumbnail: <span className="text-gray-400 font-normal">(để trống sẽ hiển thị "null")</span>
                 </label>
                 <input
                   type="url"
                   value={artThumbnail}
                   onChange={(e) => setArtThumbnail(e.target.value)}
+                  placeholder="https://... (hoặc để trống để hiển thị null)"
                   className="w-full p-2 border border-gray-300 rounded"
                 />
               </div>
@@ -472,7 +874,7 @@ export const AdminView: React.FC = () => {
                   Động cơ LLM Provider
                 </div>
                 <div className="font-mono text-lg font-bold text-brand-accent mt-1 truncate">
-                  {stats?.llm_engine?.provider || 'local_ollama'}
+                  {stats?.llm_engine?.provider || currentLlmProvider}
                 </div>
                 <div className="text-[10px] font-mono text-gray-500 mt-1 truncate">
                   {stats?.llm_engine?.local_model || 'llama3.2:3b'}
@@ -499,26 +901,28 @@ export const AdminView: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
                 <div className="p-3 bg-gray-50 border border-gray-200 space-y-1">
                   <div className="flex justify-between text-gray-500">
-                    <span>Google Gemini API Keys Pool:</span>
-                    <span className="font-bold text-gray-700">{stats?.tokens?.gemini}</span>
+                    <span>Unified Distributor API Key:</span>
+                    <span className="font-bold text-brand-accent">
+                      {distributorMaskedKey || 'Chưa cấu hình'}
+                    </span>
                   </div>
-                  <div className="text-[10px] text-gray-400">Smart UCB1 Bandits key pool router</div>
+                  <div className="text-[10px] text-gray-400">Định tuyến toàn bộ LLM calls</div>
                 </div>
 
                 <div className="p-3 bg-gray-50 border border-gray-200 space-y-1">
                   <div className="flex justify-between text-gray-500">
                     <span>Cohere Embed API Key:</span>
-                    <span className="font-bold text-gray-700">{stats?.tokens?.cohere}</span>
+                    <span className="font-bold text-gray-700">{stats?.tokens?.cohere || 'Chưa có'}</span>
                   </div>
                   <div className="text-[10px] text-gray-400">Vector Store 256-d MRL embeddings</div>
                 </div>
 
                 <div className="p-3 bg-gray-50 border border-gray-200 space-y-1">
                   <div className="flex justify-between text-gray-500">
-                    <span>Cloud OpenAI Key (Fallback):</span>
-                    <span className="font-bold text-gray-700">{stats?.tokens?.cloud_openai}</span>
+                    <span>Google Gemini API Keys Pool:</span>
+                    <span className="font-bold text-gray-700">{stats?.tokens?.gemini}</span>
                   </div>
-                  <div className="text-[10px] text-gray-400">Secondary cloud completion endpoint</div>
+                  <div className="text-[10px] text-gray-400">Smart UCB1 Bandits key pool router</div>
                 </div>
 
                 <div className="p-3 bg-gray-50 border border-gray-200 space-y-1">

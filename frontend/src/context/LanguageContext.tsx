@@ -30,7 +30,7 @@ const translations: Translations = {
   },
   sec1_latest_articles_title: { vi: 'Bài Viết Mới Nhất', en: 'Latest Analysis' },
   sec1_latest_articles_desc: { vi: 'Các phân tích kinh tế vĩ mô và tác động vi mô được cập nhật liên tục', en: 'Continuous macroeconomic analyses and household impact assessments' },
-  sec1_empty_articles: { vi: 'null (Chưa có bài viết nào trong hệ thống)', en: 'null (No articles found in the system)' },
+  sec1_empty_articles: { vi: 'null', en: 'null' },
   sec1_explore_more: { vi: 'Xem tất cả bài viết →', en: 'Explore all articles →' },
   sec1_open_tool_cta: { vi: 'Khởi chạy Tool Phân Tích (VS Code UI) →', en: 'Launch Analysis Tool (VS Code UI) →' },
 
@@ -92,6 +92,7 @@ const translations: Translations = {
   // Section IV: Admin
   sec4_title: { vi: 'Cổng Quản Trị Hệ Thống (Admin Portal)', en: 'System Administration Portal' },
   sec4_desc: { vi: 'Module quản trị độc lập (thiết kế sẵn sàng cho subdomain admin.xxx.yyy/only)', en: 'Isolated management module (designed ready for subdomain admin.xxx.yyy/only)' },
+  sec4_tab_distributor: { vi: 'Unified API Distributor', en: 'Unified API Distributor' },
   sec4_tab_publish: { vi: 'IV.1 Đăng bài viết mới', en: 'IV.1 Publish Article' },
   sec4_tab_system: { vi: 'IV.2 Token, Test API & Lỗi', en: 'IV.2 Tokens, API Test & Logs' },
   sec4_tab_customize: { vi: 'IV.3 Sửa Text & Tính Năng Web', en: 'IV.3 Edit Text & Features' },
